@@ -464,6 +464,48 @@ nav button[data-v=des]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg
 .desq .acts{display:flex;gap:8px}
 table.des tr.gp td{border-top:2px solid var(--ln)}
 article.drop{outline:3px dashed var(--or);outline-offset:-3px}
+/* v47: Despachos con informe de negocios: tarjetas por pedido con seguimiento de cada envío */
+.chips.dk{grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
+.chips.dk b{font-size:24px;line-height:30px}
+.mono{font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.fts{margin:6px 0 6px 18px;padding:0}.fts li{margin:2px 0}.fts .r{color:var(--rd)}
+.vsw{display:inline-flex;border:1.5px solid var(--ink);margin-left:auto}
+.vsw button{font:inherit;font-size:13px;font-weight:600;background:#fff;color:var(--ink);border:0;padding:0 14px;min-height:35px;cursor:pointer}
+.vsw button[aria-pressed=true]{background:var(--ink);color:#fff}
+.dgrid{display:flex;flex-direction:column;gap:14px}
+.dc{background:#fff;border:1px solid var(--ln);border-left:6px solid var(--mut)}
+.dc.run{border-left-color:var(--or)}.dc.bad{border-left-color:var(--rd)}.dc.na{border-left-color:var(--ln)}
+.dc header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:var(--sf2);flex-wrap:wrap}
+.dh b{font-size:20px;font-weight:700}
+.dh .tp{margin-left:12px;font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.08em}
+.dm{display:flex;gap:16px;align-items:center;font-size:13px;color:var(--mut);flex-wrap:wrap}.dm b{color:var(--ink)}
+.de{display:grid;grid-template-columns:minmax(140px,1fr) minmax(170px,1.3fr) minmax(250px,2fr) minmax(170px,1.2fr) minmax(130px,.9fr);gap:16px;align-items:center;padding:14px 18px;border-top:1px solid var(--ln)}
+.de .lb{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--mut);margin-bottom:2px}
+.de b{display:block;font-size:14px;font-weight:600}
+.de small{display:block;font-size:12px;color:var(--mut);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.de .dv b{font-size:16px}
+.de .dn{grid-column:1/-1;font-size:12.5px;background:#FCE6CC;border-left:3px solid var(--or);padding:7px 12px}
+.de .dn b{display:inline;font-size:12.5px}
+.trk{display:flex}
+.trk .st{flex:1;position:relative;text-align:center;font-size:11px;color:var(--mut)}
+.trk .st i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 5px;background:#fff;border:2px solid var(--ln);position:relative;z-index:1}
+.trk .st::before{content:"";position:absolute;top:6px;left:-50%;right:50%;height:3px;background:var(--ln)}
+.trk .st:first-child::before{display:none}
+.trk .st.on i{background:var(--or);border-color:var(--or)}.trk .st.on::before{background:var(--or)}
+.trk.ok .st.on i,.trk.cac .st.on i{background:var(--mut);border-color:var(--mut)}.trk.ok .st.on::before,.trk.cac .st.on::before{background:var(--mut)}
+.trk.bad .st.on i{background:var(--rd);border-color:var(--rd)}.trk.bad .st.on::before{background:var(--rd)}
+.trk .st span{display:block;text-transform:uppercase;letter-spacing:.06em;font-size:10px}
+.trk .st b{display:block;font-size:12.5px;color:var(--ink);font-weight:600}
+.pl2{display:inline-block;padding:3px 9px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border:1.5px solid currentColor;white-space:nowrap}
+.pl2.ok{background:var(--mut);color:#fff;border-color:var(--mut)}
+.pl2.run{background:var(--or);color:var(--ink);border-color:var(--or)}
+.pl2.bad{background:var(--rd);color:#fff;border-color:var(--rd)}
+.pl2.cac{background:#fff;color:var(--mut)}
+.pl2.na{background:#fff;color:var(--mut);border-style:dashed}
+.de .pl2{white-space:normal;max-width:100%}
+.dc header .pl2{white-space:normal}
+@media (max-width:1000px){.de{grid-template-columns:1fr 1fr}.de .trk{grid-column:1/-1;order:-1}}
+@media (max-width:560px){.de{grid-template-columns:1fr}.dc header{padding:10px 12px}.de{padding:12px}}
 /* v45: botón gris para quitar todos los filtros; permisos por persona en Administración */
 .btn.qf{background:var(--mut);color:#fff;border:0;white-space:nowrap}
 .btn.qf:hover{background:var(--ink);color:#fff}
@@ -539,7 +581,7 @@ const BASES=[
  {id:'intaken',n:'Intaken por día',h:['Pedido','Venta','FechaPed'],t:'Historial completo. Puede tardar unos segundos.'},
  {id:'garantias',n:'Garantías',h:['idGarantia','Estado'],t:'Reemplaza la carga anterior.'},
  {id:'cartera',n:'Seguimiento de cartera',h:['Pedido de ventas','Importe en Pesos'],t:'Reemplaza la carga anterior.'},
- {id:'guias',n:'Guías despachos + DRIVE CAC & ALMACEN',h:['Id remision','Fecha despacho'],t:'Elige o arrastra los 2 archivos a la vez (Guías de despachos fuera de Bogotá y DRIVE CAC & ALMACEN): el tablero reconoce cuál es cuál. Acepta .xls y .xlsx.',multi:true},
+ {id:'guias',n:'Guías despachos + DRIVE CAC & ALMACEN + Informe de negocios',h:['Id remision','Fecha despacho'],t:'Elige o arrastra los 3 archivos a la vez (Guías de despachos fuera de Bogotá, DRIVE CAC & ALMACEN e Informe de negocios de la transportadora): el tablero reconoce cuál es cuál. Acepta .xls y .xlsx.',multi:true},
  {id:'master',n:'BD-Master (columnas A a K)',h:['Cuenta de cliente','Empresa'],t:'Se actualiza cada 15 días.'},
  {id:'inventario',n:'Inventarios (saldo)',h:['ITEMID','AVAILPHYSICAL','INVENTLOCATIONID'],t:'Solo negocio WF y bodegas HDC050, HDC005 y HDC026A. Cada día se suma al historial de 90 días.'},
  {id:'equiv',n:'Equivalencias de telas',h:[],t:'Libro EQUIVALENCIAS_HD-FL-SC_OFICIAL (una hoja por línea). Cárgalo solo cuando se actualice o se agregue una tela: se suma a las equivalencias que ya tiene el tablero y se cruza con Inventarios.'}
@@ -644,7 +686,8 @@ async function rCarga(){
   const r=await get(b.id);
   h+=`<article class="card ${r?'ok':'vacia'}" id="c-${b.id}"><h3>${b.n}</h3><p class="est">${b.t}</p>`
    +`<p class="est">${r?'Cargada el '+esc(new Date(r.cargado).toLocaleString('es-CO'))+' · '+r.n.toLocaleString('es-CO')+' filas<br>'+esc(r.archivo)+(r.por?' · '+esc(r.por):''):'Sin datos todavía.'}</p>`
-   +(b.multi?await (async()=>{const dv=await get('drive');return'<p class="est">DRIVE CAC & ALMACEN: '+(dv?'cargado el '+esc(new Date(dv.cargado).toLocaleString('es-CO'))+' · '+dv.n.toLocaleString('es-CO')+' filas<br>'+esc(dv.archivo):'sin datos todavía.')+'</p>'})():'')
+   +(b.multi?await (async()=>{const ln=(t,v,u)=>'<p class="est">'+t+': '+(v?'cargado el '+esc(new Date(v.cargado).toLocaleString('es-CO'))+' · '+v.n.toLocaleString('es-CO')+' '+u+'<br>'+esc(v.archivo):'sin datos todavía.')+'</p>';
+   return ln('DRIVE CAC & ALMACEN',await get('drive'),'filas')+ln('Informe de negocios',await get('negocios'),'guías')})():'')
    +`<label class="btn">${b.multi?'Elegir archivos':'Elegir archivo'}<input type="file" accept=".xlsx,.xls,.xlsm,.csv" data-b="${b.id}"${b.multi?' multiple':''}></label>`;
   if(b.id==='faltantes'){
    const p=await get('faltantes_prev');
@@ -693,6 +736,9 @@ async function cargarDespachos(i,files){
   try{
    await new Promise(r=>setTimeout(r,30));
    const base={archivo:f.name,por:AU.name||'',cargado:new Date().toISOString(),dia:new Date().toLocaleDateString('en-CA')};
+   /* Informe de negocios de la transportadora: trae "Codigo remision" y "Estado" */
+   const ng=await negLeer(f);
+   if(ng){await put('negocios',{...base,cab:ng.cab,rows:ng.rows,n:ng.rows.length});res.push('Informe de negocios: '+ng.rows.length.toLocaleString('es-CO')+' guías ('+f.name+')');continue}
    let d=null;try{d=await leer(f,b)}catch(e){d=null}
    if(d){await put('guias',{...base,cab:d.cab,rows:d.rows,n:d.rows.length});res.push('Guías de despachos: '+d.rows.length.toLocaleString('es-CO')+' filas ('+f.name+')');continue}
    const dr=await driveLeer(f);
@@ -701,6 +747,22 @@ async function cargarDespachos(i,files){
  }
  i.value='';await rCarga();
  const m=$('#c-guias .msg');m.className='msg '+(err?'err':'ok');m.innerHTML=(err?'':'Listo. ')+res.map(esc).join('<br>');
+}
+/* Informe de negocios: se guardan solo las columnas que usa Despachos (por nombre de encabezado; si no está, por la letra) */
+const NEG_COLS=[['guia','Codigo remision','A'],['doc','Documento','D'],['tdest','Term destino','F'],['dest','Destino','H'],['rec','Fecha recogida','J'],['desp','Fecha despacho','L'],['ent','Fecha entrega','M'],
+ ['nit','Nit destinatario','Q'],['nom','Nombre destinatario','R'],['uni','Unidades','W'],['val','Valoracion','Z'],['est','Estado','AA'],['dofe','Dias ofrecidos','AB'],['dtra','Dias transcurridos','AC'],['nov','Novedad','AD'],['efi','Eficiencia','AE'],['obs','Observaciones','AV']];
+const colIdx=L=>[...L].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1;
+async function negLeer(f){
+ const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true,dense:true});
+ for(const nom of wb.SheetNames){
+  const F=XLSX.utils.sheet_to_json(wb.Sheets[nom],{header:1,raw:true,defval:'',blankrows:false});
+  const hi=F.slice(0,12).findIndex(r=>r.some(x=>/^c[oó]digo remisi[oó]n$/i.test(String(x).trim()))&&r.some(x=>/^estado$/i.test(String(x).trim())));
+  if(hi<0)continue;
+  const H=F[hi].map(x=>String(x).trim().toLowerCase()),ix=NEG_COLS.map(([k,n,L])=>{const i=H.indexOf(n.toLowerCase());return i>=0?i:colIdx(L)});
+  const rows=F.slice(hi+1).filter(r=>String(r[ix[0]]==null?'':r[ix[0]]).trim()!=='').map(r=>ix.map(i=>r[i]==null?'':r[i]));
+  return{cab:NEG_COLS.map(c=>c[1]),rows};
+ }
+ return null;
 }
 async function driveLeer(f){
  const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true,dense:true});
@@ -1473,86 +1535,137 @@ async function rGar(){
   (h=>{const t=txtAv();if(t.length){h.rows=h.rows.filter(r=>r[0]!=='Sin filtros');h.rows.push(...t)}return h})(hojaFiltros(pasa,$('#g-q').value))]);
 }
 
-/* ===== Despachos (v46): fechas de envío y número de guía de varios pedidos o garantías a la vez =====
-   Guías de despachos (fuera de Bogotá): el pedido o la garantía está en las columnas AC o AD (y en las columnas cuyo encabezado diga "pedido"),
-   la guía en la columna AU y la fecha en "Fecha despacho". DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B.
+/* ===== Despachos (v47): seguimiento de envíos de varios pedidos, garantías o guías a la vez =====
+   Fuentes (se cargan juntas en la tarjeta de Guías):
+   - Guías de despachos (fuera de Bogotá): pedido o garantía en AC/AD (y columnas con "pedido"), guía AU, estado AQ, unidades BF, fecha "Fecha despacho".
+   - DRIVE CAC & ALMACEN (Bogotá): fecha columna A, pedido columna B; estado DESPACHADO.
+   - Informe de negocios (transportadora): guía A ("Codigo remision"), pedido o garantía en D ("Documento"), AV ("Observaciones") y Q si es pedido,
+     destino H, recogida J, despacho L, entrega M, destinatario R, unidades W, valor declarado Z, estado AA, días AB/AC, novedad AD, eficiencia AE.
+     Si la guía coincide con una del archivo de Guías se completa esa misma; si no, es un envío más.
    No depende de Pending: sirve para cualquier mes que esté en los archivos cargados. */
-/* Unidades del envío: columna BF del archivo de Guías (solo envíos fuera de Bogotá) */
 const uniDe=v=>{if(v==null||v==='')return'';const n=typeof v==='number'?v:Number(String(v).replace(/\./g,'').replace(',','.'));return isNaN(n)?'':n};
-const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',T_GAR='Garantía / Reparación',T_ENV='Número de envío';
+const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',ORI_TR='Transportadora',T_GAR='Garantía / Reparación',T_ENV='Número de envío';
 const kPed=v=>String(v==null?'':v).replace(/\s+/g,'').toUpperCase().replace(/\.0+$/,'');
 const dig5=v=>String(v==null?'':v).match(/\d{5,}/g)||[];
+const esPedV=v=>/^[A-Z]{1,3}-?\d{4,}$/.test(kPed(v));
 const fDes=v=>{if(v instanceof Date)return dk(v);if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10)}
  const t=String(v==null?'':v).trim(),m=t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);if(m)return(m[3].length===2?'20'+m[3]:m[3])+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');return/^\d{4}-\d\d-\d\d/.test(t)?t.slice(0,10):t};
+/* Situación de la guía según su estado: entregada (gris), en camino (naranja), con incidencia (vino), despachado en Bogotá, sin estado */
+const catEst=s=>{const t=String(s||'').toUpperCase();return/ENTREGAD/.test(t)?'ok':/DESPACHAD/.test(t)?'cac':/INCIDEN|DEVOL|SINIESTR|ANULAD|RECHAZ/.test(t)?'bad':/TERMINAL|TRANSPORTE|REPARTO|DROOP|RUTA|TR[AÁ]NSITO|BODEGA|RECOGID|DESPACHO/.test(t)?'run':'na'};
+const SIT={ok:'Entregada',run:'En camino',bad:'Con incidencia',cac:'Despachado (Bogotá)',na:'Sin estado'};
 async function datosDes(){
- const [gu,dr]=await Promise.all([get('guias'),get('drive')]);
- const ex=new Map(),nu=new Map(),gi=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}a.push(e)};
- /* El índice por número solo toma valores que no son pedidos (los pedidos tipo D170246 se buscan siempre exactos), así una garantía 170246 nunca trae el pedido D170246 */
- const esPed=v=>/^[A-Z]{1,3}-?\d{4,}$/.test(kPed(v));
- const meter=(v,e)=>{if(v==null||v==='')return;add(ex,kPed(v),e);if(!esPed(v))dig5(v).forEach(d=>add(nu,d,e))};
+ const [gu,dr,ng]=await Promise.all([get('guias'),get('drive'),get('negocios')]);
+ const ex=new Map(),nu=new Map(),gi=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}if(!a.includes(e))a.push(e)};
+ /* El índice por número solo toma valores que no son pedidos: una garantía 170246 nunca trae el pedido D170246 */
+ /* Un texto como "D169767 -4" o "Ped D169932 / caja 2" se indexa también por el pedido D que contiene; los números sueltos solo si no son parte de un pedido D */
+ const meter=(v,e)=>{if(v==null||v==='')return;const t=String(v).toUpperCase();add(ex,kPed(v),e);(t.match(/D\d{5,}/g)||[]).forEach(d=>add(ex,d,e));
+  if(!esPedV(v))dig5(t.replace(/D\d{5,}/g,' ')).forEach(d=>add(nu,d,e))};
+ const guE=[],drE=[];
  if(gu){const c=gu.cab.map(x=>String(x));let iF=c.indexOf('Fecha despacho');if(iF<0)iF=c.findIndex(h=>/fecha.*desp/i.test(h));
   const cols=[28,29,...c.map((h,i)=>/pedido/i.test(h)&&i!==28&&i!==29?i:-1).filter(i=>i>=0)];
-  for(const r of gu.rows){const c=[...new Set(cols.map(i=>nrm(r[i])).filter(Boolean))].join(', ')||[...new Set(r.flatMap(v=>String(v==null?'':v).toUpperCase().match(/\bD\d{5,}\b/g)||[]))].join(', '),e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU,c,u:uniDe(r[57]),st:nrm(r[42])||'Sin estado'};cols.forEach(i=>meter(r[i],e));
-   /* número de envío (guía, columna AU): también se puede buscar */
-   if(nrm(r[46]))add(gi,kPed(r[46]),e)}
+  for(const r of gu.rows){
+   const cn=[...new Set(cols.map(i=>nrm(r[i])).filter(Boolean))].join(', ')||[...new Set(r.flatMap(v=>String(v==null?'':v).toUpperCase().match(/\bD\d{5,}\b/g)||[]))].join(', ');
+   const e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU,c:cn,u:uniDe(r[57]),st:nrm(r[42])||'Sin estado',n:null};
+   guE.push(e);cols.forEach(i=>meter(r[i],e));if(nrm(r[46]))add(gi,kPed(r[46]),e)}
   gu._iF=iF}
- if(dr)for(const r of dr.rows)meter(r[1],{f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR,c:nrm(r[1]),st:'DESPACHADO'});
- /* Respaldo: si no aparece en las columnas de siempre, se busca en TODAS las columnas de los dos archivos (celda igual o que contenga el pedido)
-    y se indica la letra de la columna donde apareció */
+ if(dr)for(const r of dr.rows){const e={f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR,c:nrm(r[1]),u:'',st:'DESPACHADO',n:null};drE.push(e);meter(r[1],e)}
+ if(ng){const I={};NEG_COLS.forEach((c,i)=>I[c[0]]=i);
+  for(const r of ng.rows){
+   const v=k=>r[I[k]],kg=kPed(v('guia'));if(!kg)continue;
+   const n={dest:nrm(v('dest')),tdest:nrm(v('tdest')),rec:fDes(v('rec')),desp:fDes(v('desp')),ent:fDes(v('ent')),nom:nrm(v('nom')),val:uniDe(v('val')),
+    dofe:v('dofe')===''?'':num(v('dofe')),dtra:v('dtra')===''?'':num(v('dtra')),nov:nrm(v('nov')),efi:nrm(v('efi'))};
+   const q=nrm(v('nit')),refs=[...new Set([nrm(v('doc')),nrm(v('obs')),...(esPedV(q)||/^\d{6}$/.test(q)?[q]:[])].filter(Boolean))];
+   let E=gi.get(kg);
+   if(E&&E.length)E.forEach(e=>{e.n=n;e.st=nrm(v('est'))||e.st;if(e.u==='')e.u=uniDe(v('uni'));if(!e.c)e.c=refs.join(', ')});
+   else{const e={f:n.rec||n.desp,g:nrm(v('guia')),o:ORI_TR,c:refs.join(', '),u:uniDe(v('uni')),st:nrm(v('est'))||'Sin estado',n};add(gi,kg,e);E=[e]}
+   E.forEach(e=>refs.forEach(x=>meter(x,e)));
+  }}
+ /* Respaldo: si no aparece en las columnas de siempre, se busca en TODAS las columnas de Guías y DRIVE y se indica la letra */
  const letra=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
  const enTodo=t=>{const k=kPed(t),out=[];if(k.length<4)return out;
-  const pt=esPed(t),hit=v=>{if(v==null||v==='')return false;const c=kPed(v);if(c===k)return true;if(k.length<6||!c.includes(k))return false;return pt||!esPed(v)};
-  if(gu)for(const r of gu.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[gu._iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU+' · col. '+letra(i),c:nrm(r[i]),u:uniDe(r[57]),st:nrm(r[42])||'Sin estado'});break}}
-  if(dr)for(const r of dr.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR+' · col. '+letra(i),c:nrm(r[1]),st:'DESPACHADO'});break}}
+  const pt=esPedV(t),hit=v=>{if(v==null||v==='')return false;const c=kPed(v);if(c===k)return true;if(k.length<6||!c.includes(k))return false;return pt||!esPedV(v)};
+  if(gu)gu.rows.forEach((r,j)=>{for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({...guE[j],o:ORI_GU+' · col. '+letra(i),c:guE[j].c||nrm(r[i])});break}});
+  if(dr)dr.rows.forEach((r,j)=>{for(let i=0;i<r.length;i++)if(hit(r[i])){out.push(drE[j]);break}});
   return out};
- /* búsqueda: primero el valor exacto; si no aparece, el número (así 148054 encuentra "GAR-148054"); si tampoco, en todas las columnas */
- const buscar=t=>{const k=kPed(t),G=(gi.get(k)||[]).map(e=>({...e,tp:T_ENV}));let a=ex.get(k);if((!a||!a.length)&&!esPed(t)){const d=dig5(t);a=d.length?[].concat(...d.map(x=>nu.get(x)||[])):[]}
-  if((!a||!a.length)&&!G.length)a=enTodo(t);
-  const tp=esPed(t)?'Pedido':T_GAR;a=[...G,...(a||[]).map(e=>({...e,tp}))];
-  const vis=new Set();return a.filter(e=>{const z=e.f+'|'+e.g+'|'+e.o+'|'+e.tp;if(vis.has(z))return false;vis.add(z);return true}).sort((p,q)=>String(q.f).localeCompare(String(p.f)))};
- return{gu,dr,buscar};
+ /* búsqueda: guía exacta; pedido o garantía exactos; si no, por el número (148054 encuentra "GAR-148054"); si no, en todas las columnas */
+ const buscar=t=>{const k=kPed(t),G=gi.get(k)||[];let a=ex.get(k)||[];
+  if(!a.length&&!esPedV(t))a=[].concat(...dig5(t).map(x=>nu.get(x)||[]));
+  if(!a.length&&!G.length)a=enTodo(t);
+  const tp=esPedV(t)?'Pedido':T_GAR,vis=new Set(),out=[];
+  G.forEach(e=>{if(!vis.has(e)){vis.add(e);out.push({e,tp:T_ENV})}});a.forEach(e=>{if(!vis.has(e)){vis.add(e);out.push({e,tp})}});
+  return out.sort((p,q)=>String(q.e.f).localeCompare(String(p.e.f)))};
+ return{gu,dr,ng,buscar};
 }
 async function rDes(){
  const el=$('#des'),D=await datosDes();
- if(!D.gu&&!D.dr){el.innerHTML='<h2 class="tt">Despachos</h2>'+vacio('Todavía no hay datos de despachos. Carga los archivos de Guías de despachos y DRIVE CAC & ALMACEN en la pestaña Carga.');return}
- const rng=A=>{const f=A.flatMap(x=>x.rows.map(r=>fDes(x===D.dr?r[0]:r[x.cab.indexOf('Fecha despacho')]))).filter(v=>/^\d{4}-\d\d-\d\d$/.test(v)).sort();return f.length?fd(f[0])+' al '+fd(f[f.length-1]):'sin fechas'};
- el.innerHTML='<h2 class="tt">Despachos</h2><div class="chips"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>despachos</span><span><b id="d-nu">0</b>unidades enviadas</span></div>'
-  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Pega uno o varios pedidos, garantías o números de envío (uno por línea, o separados por coma, punto y coma o espacio). Por cada uno se listan todas las fechas de envío que aparecen, de la más nueva a la más antigua, con su número de guía. '
-  +'Guías de despachos (envíos fuera de Bogotá): el pedido o la garantía se busca en las columnas AC y AD, la guía es la columna AU, las unidades la columna BF, el estado de la guía la columna AQ y la fecha la columna “Fecha despacho”'+(D.gu?' ('+esc(D.gu.archivo)+', '+rng([D.gu])+')':' (sin cargar)')+'. '
-  +'DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B; su estado es DESPACHADO'+(D.dr?' ('+esc(D.dr.archivo)+', '+rng([D.dr])+')':' (sin cargar)')+'. Los pedidos empiezan con D y las garantías y reparaciones son solo números; nunca se mezclan entre sí. También puedes pegar un número de envío (guía, columna AU): se muestra la fecha y los pedidos o garantías que van en ese envío. Si el valor exacto no aparece, se busca por el número (por ejemplo, 148054 encuentra “GAR-148054”). No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></details>'
-  +'<div class="desq"><label class="fld"><span>Pedidos, garantías o números de envío a consultar</span><textarea id="d-ped" rows="4" spellcheck="false" placeholder="Pega aquí los pedidos (con D), garantías o números de envío, por ejemplo:&#10;D170246&#10;148054"></textarea></label>'
+ if(!D.gu&&!D.dr&&!D.ng){el.innerHTML='<h2 class="tt">Despachos</h2>'+vacio('Todavía no hay datos de despachos. Carga Guías de despachos, DRIVE CAC & ALMACEN e Informe de negocios en la pestaña Carga.');return}
+ const rng=(rows,fi)=>{const f=rows.map(r=>fDes(fi(r))).filter(v=>/^\d{4}-\d\d-\d\d$/.test(v)).sort();return f.length?fd(f[0])+' al '+fd(f[f.length-1]):'sin fechas'};
+ const fte=(t,b,txt)=>'<li><b>'+t+'</b> '+(b?esc(b.archivo)+' · '+txt:'<span class="r">sin cargar</span>')+'</li>';
+ el.innerHTML='<h2 class="tt">Despachos</h2>'
+  +'<div class="chips dk"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>envíos</span>'
+  +'<span><b id="d-ok">0</b>entregados</span><span class="o"><b id="d-run">0</b>en camino</span><span class="r"><b id="d-bad">0</b>con incidencia o novedad</span><span><b id="d-nu">0</b>unidades</span><span><b id="d-nv">$ 0</b>valor declarado</span></div>'
+  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><div class="est"><p>Pega pedidos (empiezan con D), garantías o reparaciones (solo números) o números de guía, uno por línea o separados por coma, punto y coma o espacio. Cada uno muestra todos sus envíos, del más reciente al más antiguo. Pedidos y garantías nunca se mezclan entre sí.</p><ul class="fts">'
+  +fte('Guías de despachos (fuera de Bogotá):',D.gu,D.gu?'pedido o garantía en AC/AD, guía AU, estado AQ, unidades BF; '+rng(D.gu.rows,r=>r[D.gu.cab.indexOf('Fecha despacho')]):'')
+  +fte('DRIVE CAC & ALMACEN (Bogotá):',D.dr,D.dr?'fecha A, pedido B, estado DESPACHADO; '+rng(D.dr.rows,r=>r[0]):'')
+  +fte('Informe de negocios (transportadora):',D.ng,D.ng?'guía A, pedido o garantía en D, AV y Q, destino H, recogida J, entrega M, valor declarado Z, estado AA, eficiencia AE y novedad AD; '+rng(D.ng.rows,r=>r[4]):'')
+  +'</ul><p>Cuando la guía del informe de negocios coincide con una del archivo de Guías se completa ese mismo envío (destino, fechas, valor y estado de la transportadora). Si un pedido no aparece en las columnas de siempre, se busca en todas las columnas de Guías y DRIVE y en Origen se indica la letra. No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></div></details>'
+  +'<div class="desq"><label class="fld"><span>Pedidos, garantías o números de guía a consultar</span><textarea id="d-ped" rows="3" spellcheck="false" placeholder="Pega aquí los pedidos (con D), garantías o números de guía, por ejemplo:&#10;D170246&#10;148054"></textarea></label>'
   +'<div class="acts"><button type="button" class="btn" id="d-go">Consultar</button><button type="button" class="btn sec" id="d-cl">Limpiar lista</button></div></div>'
-  +'<div class="filtros">'+qfBtn('d')+'<button type="button" class="btn ex" id="d-x">Exportar a Excel</button></div><div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
- const ta=$('#d-ped');ta.value=FQ.dPed||'';
+  +'<div class="filtros">'+qfBtn('d')+'<div class="vsw" role="group" aria-label="Vista"><button type="button" data-vw="c">Tarjetas</button><button type="button" data-vw="t">Tabla</button></div><button type="button" class="btn ex" id="d-x">Exportar a Excel</button></div>'
+  +'<div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
+ const ta=$('#d-ped');ta.value=FQ.dPed||'';FQ.dVw=FQ.dVw||'c';
  let pasa=()=>true,L=[],NF=[],toks=[];
+ const pill=s=>'<span class="pl2 '+catEst(s)+'">'+esc(s||'Sin estado')+'</span>';
+ const dias=n=>n&&n.dtra!==''&&n.dtra!=null?fnum(n.dtra,0)+(n.dofe!==''&&n.dofe!=null?' de '+fnum(n.dofe,0):'')+' días':'';
+ const envio=x=>{const n=x.n||{},c=catEst(x.st);
+  const P=[['Recogida',n.rec||(x.n?'':x.f)],['Despacho',n.desp||(x.n?'':x.f)],['Entrega',n.ent||(c==='cac'?x.f:'')]];
+  const lv=c==='ok'||c==='cac'?3:P.filter(p=>p[1]).length||1;
+  return'<div class="de"><div><span class="lb">Guía</span><b class="mono">'+esc(x.g)+'</b><small>'+esc(x.o)+'</small></div>'
+   +'<div><span class="lb">Destino</span><b>'+esc(n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'—'))+'</b><small title="'+esc(n.nom||x.c)+'">'+esc(n.nom||x.c)+'</small></div>'
+   +'<div class="trk '+c+'">'+P.map((p,i)=>'<div class="st'+(i<lv?' on':'')+'"><i></i><span>'+p[0]+'</span><b>'+(p[1]?esc(fd(p[1])):'—')+'</b></div>').join('')+'</div>'
+   +'<div>'+pill(x.st)+'<small>'+esc([n.efi,dias(x.n)].filter(Boolean).join(' · '))+'</small></div>'
+   +'<div class="dv"><span class="lb">Valor declarado</span><b>'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'—')+'</b><small>'+(x.u!==''&&x.u!=null?fnum(x.u,0)+(x.u===1?' unidad':' unidades'):'')+'</small></div>'
+   +(n.nov?'<div class="dn"><b>Novedad:</b> '+esc(n.nov)+'</div>':'')+'</div>'};
  const pintar=()=>{
-  const R=L.filter(x=>pasa(x));
-  const peds=[...new Set(R.map(x=>x.ped))];
-  $('#d-nb').textContent=toks.length.toLocaleString('es-CO');$('#d-ne').textContent=(toks.length-NF.length).toLocaleString('es-CO');$('#d-nn').textContent=NF.length.toLocaleString('es-CO');$('#d-nd').textContent=R.length.toLocaleString('es-CO');{const vu=new Set();$('#d-nu').textContent=fnum(R.reduce((t,x)=>{const z=x.g+'|'+x.f;if(typeof x.u!=='number'||vu.has(z))return t;vu.add(z);return t+x.u},0),2)}   /* cada envío se suma una sola vez */
-  $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> <span id="d-nfl">'+esc(NF.join(', '))+'</span> <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
+  const R=L.filter(x=>pasa(x)),peds=[...new Set(R.map(x=>x.ped))];
+  const un=new Map();R.forEach(x=>{const z=x.g+'|'+x.f;if(!un.has(z))un.set(z,x)});const U=[...un.values()];
+  const set=(id,v)=>{$(id).textContent=v};
+  set('#d-nb',fnum(toks.length,0));set('#d-ne',fnum(toks.length-NF.length,0));set('#d-nn',fnum(NF.length,0));set('#d-nd',fnum(U.length,0));
+  set('#d-ok',fnum(U.filter(x=>catEst(x.st)==='ok'||catEst(x.st)==='cac').length,0));set('#d-run',fnum(U.filter(x=>catEst(x.st)==='run').length,0));
+  set('#d-bad',fnum(U.filter(x=>catEst(x.st)==='bad'||(x.n&&x.n.nov)).length,0));
+  set('#d-nu',fnum(U.reduce((t,x)=>t+(typeof x.u==='number'?x.u:0),0),0));set('#d-nv','$ '+fnum(U.reduce((t,x)=>t+(x.n&&typeof x.n.val==='number'?x.n.val:0),0),0));
+  $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> '+esc(NF.join(', '))+' <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
   const cp=$('#d-cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NF.join('\n'));cp.textContent='Copiado'}catch(e){}};
-  if(!toks.length){$('#d-t').innerHTML=vacio('Pega los pedidos, garantías o números de envío y pulsa Consultar.');return}
-  if(!R.length){$('#d-t').innerHTML=vacio(L.length?'Ningún despacho coincide con los filtros.':'No se encontraron despachos para esos pedidos.');return}
-  let t='<div class="tw"><table class="pv des"><thead><tr><th>Buscado</th><th>Tipo</th><th class="n">Envíos</th><th>Fecha de envío</th><th>Número de guía</th><th class="n">Unidades</th><th>Pedidos / garantías del envío</th><th>Estado de la guía</th><th>Origen</th></tr></thead><tbody>';
-  peds.forEach(p=>{const A=R.filter(x=>x.ped===p);
-   A.forEach((x,i)=>{t+='<tr'+(i===0?' class="gp"':'')+'>'+(i===0?'<td rowspan="'+A.length+'"><b>'+esc(p)+'</b></td><td rowspan="'+A.length+'">'+esc(x.tipo)+'</td><td class="n" rowspan="'+A.length+'">'+A.length+'</td>':'')
-    +'<td>'+esc(fd(x.f))+(i===0&&A.length>1?' <span class="sb">más reciente</span>':'')+'</td><td>'+esc(x.g)+'</td><td class="n">'+(x.u===''?'':fnum(x.u,2))+'</td><td class="wr">'+esc(x.c)+'</td><td>'+esc(x.st)+'</td><td>'+esc(x.o)+'</td></tr>'})});
-  $('#d-t').innerHTML=t+'</tbody></table></div>';
+  el.querySelectorAll('[data-vw]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.vw===FQ.dVw));
+  if(!toks.length){$('#d-t').innerHTML=vacio('Pega los pedidos, garantías o números de guía y pulsa Consultar.');return}
+  if(!R.length){$('#d-t').innerHTML=vacio(L.length?'Ningún envío coincide con los filtros.':'No se encontraron envíos para lo que pegaste.');return}
+  if(FQ.dVw==='t'){
+   let t='<div class="tw"><table class="pv des"><thead><tr><th>Buscado</th><th>Tipo</th><th>Fecha de envío</th><th>Guía</th><th>Destino</th><th>Recogida</th><th>Entrega</th><th>Estado</th><th>Eficiencia</th><th class="n">Días</th><th class="n">Unidades</th><th class="n">Valor declarado</th><th>Pedidos / garantías del envío</th><th>Origen</th></tr></thead><tbody>';
+   peds.forEach(p=>R.filter(x=>x.ped===p).forEach((x,i,A)=>{const n=x.n||{};t+='<tr'+(i===0?' class="gp"':'')+'>'+(i===0?'<td rowspan="'+A.length+'"><b>'+esc(p)+'</b></td><td rowspan="'+A.length+'">'+esc(x.tipo)+'</td>':'')
+    +'<td>'+esc(fd(x.f))+'</td><td class="mono">'+esc(x.g)+'</td><td>'+esc(n.dest||'')+'</td><td>'+esc(fd(n.rec||''))+'</td><td>'+esc(fd(n.ent||''))+'</td><td>'+pill(x.st)+'</td><td>'+esc(n.efi||'')+'</td><td class="n">'+esc(dias(x.n))+'</td>'
+    +'<td class="n">'+(x.u===''?'':fnum(x.u,0))+'</td><td class="n">'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'')+'</td><td class="wr">'+esc(x.c)+'</td><td>'+esc(x.o)+'</td></tr>'}));
+   $('#d-t').innerHTML=t+'</tbody></table></div>';return}
+  $('#d-t').innerHTML='<div class="dgrid">'+peds.map(p=>{const A=R.filter(x=>x.ped===p),x0=A[0],c0=catEst(x0.st);
+   return'<article class="dc '+c0+'"><header><div class="dh"><b class="mono">'+esc(p)+'</b><span class="tp">'+esc(x0.tipo)+'</span></div><div class="dm"><span>'+A.length+(A.length===1?' envío':' envíos')+'</span><span>Último: <b>'+esc(fd(x0.f)||'—')+'</b></span>'+pill(x0.st)+'</div></header>'+A.map(envio).join('')+'</article>'}).join('')+'</div>';
  };
  const consultar=()=>{
   FQ.dPed=ta.value;
   const vis=new Set();toks=ta.value.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x&&!vis.has(kPed(x))&&vis.add(kPed(x)));
   L=[];NF=[];
   for(const t of toks){const A=D.buscar(t);if(!A.length){NF.push(t);continue}
-   A.forEach(e=>L.push({ped:t,tipo:e.tp,c:e.c||'',u:e.u==null?'':e.u,st:e.st||'',f:e.f,g:e.g,o:e.o,mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
-  const defs=[{n:'Estado de la guía',f:x=>x.st},{n:'Origen',f:x=>x.o},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes,porMes:true},{n:'Número de guía',f:x=>x.g}];
+   A.forEach(({e,tp})=>L.push({ped:t,tipo:tp,f:e.f,g:e.g,o:e.o,c:e.c||'',u:e.u==null?'':e.u,st:e.st||'',n:e.n,sit:SIT[catEst(e.st)],
+    mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
+  const defs=[{n:'Situación',f:x=>x.sit},{n:'Estado de la guía',f:x=>x.st},{n:'Eficiencia',f:x=>x.n&&x.n.efi||'(sin dato)'},{n:'Destino',f:x=>x.n&&x.n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'(sin dato)')},
+   {n:'Con novedad',f:x=>x.n&&x.n.nov?'Sí':'No'},{n:'Origen',f:x=>x.o.replace(/ · col\. .*/,'')},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes}];
   pasa=filtros($('#d-b'),defs,L,pintar,'d');pintar();
  };
  $('#d-go').onclick=consultar;$('#d-cl').onclick=()=>{ta.value='';FQ.dPed='';consultar();ta.focus()};
  ta.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();consultar()}};
  ta.onpaste=()=>setTimeout(consultar,0);
+ el.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{FQ.dVw=b.dataset.vw;pintar()});
  consultar();
- $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Unidades','Pedidos / garantías del envío','Estado de la guía','Origen'],rows:L.filter(x=>pasa(x)).map(x=>[x.ped,x.tipo,fd(x.f),x.g,x.u,x.c,x.st,x.o])},
+ $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Destino','Destinatario','Fecha recogida','Fecha despacho','Fecha entrega','Estado de la guía','Situación','Eficiencia','Días transcurridos','Días ofrecidos','Novedad','Unidades','Valor declarado','Pedidos / garantías del envío','Origen'],
+  rows:L.filter(x=>pasa(x)).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,n.dest||'',n.nom||'',fd(n.rec||''),fd(n.desp||''),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
   ...(NF.length?[{n:'No encontrados',cab:['Buscado'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
 }
 
@@ -1813,9 +1926,9 @@ const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxZmX2yQbqsC3MBd9
 let TAB='carga';
 const TAM=40000,PARTE=25,SYNC_MIN=3,DOM_RE=/^[a-z0-9._%+-]+@hdlao\.com$/i;
 const KS={auth:'hdfl_auth',meta:'hdfl_meta',dirty:'hdfl_dirty',team:'hdfl_team'};
-const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|equiv|drive|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
+const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|equiv|drive|negocios|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
 const MEZCLA={comentarios:1,tablas:1};
-const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',drive:'DRIVE CAC & ALMACEN',master:'BD-Master',inventario:'Inventarios (último saldo)',equiv:'Equivalencias de telas',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
+const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',drive:'DRIVE CAC & ALMACEN',negocios:'Informe de negocios (transportadora)',master:'BD-Master',inventario:'Inventarios (último saldo)',equiv:'Equivalencias de telas',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
 const nomBase=k=>NOM_BASE[k]||(k.startsWith('inv_')?'Inventarios · '+k.slice(4):k);
 const SY={url:APPS_SCRIPT_URL,st:'local',msg:'',busy:false,again:false,last:0,pollT:null,saveT:null,items:[],nuevos:0,needDraw:false};
 const AU={token:'',email:'',name:'',admin:false,owner:false,created:'',last:'',perms:{}};
@@ -1950,7 +2063,7 @@ async function fusionar(k){
 }
 function aplicarTablas(){get('tablas').then(t=>{if(t)Object.keys(t).forEach(k=>{if(SEED[k])SEED[k]=t[k]})}).catch(()=>{})}
 async function clavesLocales(){
- const ks=['pending','faltantes','faltantes_prev','intaken','garantias','cartera','guias','master','inventario','equiv','drive','comentarios','tablas'];
+ const ks=['pending','faltantes','faltantes_prev','intaken','garantias','cartera','guias','master','inventario','equiv','drive','negocios','comentarios','tablas'];
  const dias=(await get('inv_dias'))||[];
  const lista=[...ks,'inv_dias',...dias.map(d=>'inv_'+d)],out=[];
  for(const k of lista){const v=await get(k);if(v!=null)out.push(k)}
