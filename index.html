@@ -1487,7 +1487,7 @@ async function rGar(){
   +'<label>Color <select id="g-col"><option value="">Todos</option><option value="n">Naranja (fuera de tiempo)</option><option value="s">Sin color (en tiempo)</option></select></label>'
   +'<label>Días en estado <select id="g-op"><option value="">Cualquiera</option><option value="gt">Mayor que (&gt;)</option><option value="ge">Mayor o igual (&ge;)</option><option value="lt">Menor que (&lt;)</option><option value="le">Menor o igual (&le;)</option><option value="eq">Igual a (=)</option><option value="bt">Entre</option></select></label>'
   +'<input id="g-n1" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Número de días"><span id="g-y" hidden>y</span><input id="g-n2" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Hasta cuántos días" hidden>'
-  +'<button type="button" class="lm" id="g-al">Quitar</button></div><div id="g-t"></div>';
+  +'</div><div id="g-t"></div>';
  const defs=[{n:'Agente',f:x=>x.ej},{n:'Comercial-Zona',f:x=>x.ge},{n:'Negocio',f:x=>x.neg},{n:'Definición',f:x=>x.def},{n:'Estado',f:x=>x.est},
   {n:'Distribuidor',f:x=>x.dist},{n:'Días en estado',f:x=>x.dias,num:true},{n:'Tipo de cortina',f:x=>x.lin},{n:'Guía de despacho',f:x=>x.gu?'Con guía':'Sin guía'}].map(d=>({...d,uk:x=>x.id}));
  /* Los filtros actúan sobre los ítems (como los segmentadores) y los conteos son garantías */
@@ -1533,7 +1533,7 @@ async function rGar(){
  $('#g-op').onchange=()=>{AV.op=$('#g-op').value;sync();if(AV.op&&AV.n1==='')$('#g-n1').focus();pintar()};
  $('#g-n1').oninput=()=>{AV.n1=$('#g-n1').value.trim();pintar()};
  $('#g-n2').oninput=()=>{AV.n2=$('#g-n2').value.trim();pintar()};
- $('#g-al').onclick=()=>{Object.assign(AV,{col:'',op:'',n1:'',n2:''});$('#g-col').value='';$('#g-op').value='';$('#g-n1').value='';$('#g-n2').value='';sync();pintar()};
+ 
  pintar();
  $('#g-x').onclick=()=>exportar('Garantias',[
   {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Agente','Comercial-Zona','Tipo de cortina','Fecha garantía','Cliente final','Factura'],
@@ -1784,7 +1784,7 @@ async function rInv(){
   +'<input id="i-n1" type="number" min="0" step="any" inputmode="decimal" placeholder="cantidad" aria-label="Cantidad"><span id="i-y" hidden>y</span><input id="i-n2" type="number" min="0" step="any" inputmode="decimal" placeholder="hasta" aria-label="Hasta" hidden>'
   +'<label>Costo unitario <select id="i-cop"><option value="">Cualquiera</option><option value="gt">Mayor que (&gt;)</option><option value="ge">Mayor o igual (&ge;)</option><option value="eq">Igual a (=)</option><option value="bt">Entre</option></select></label>'
   +'<input id="i-c1" type="number" min="0" step="any" inputmode="decimal" placeholder="$" aria-label="Costo unitario"><span id="i-cy" hidden>y</span><input id="i-c2" type="number" min="0" step="any" inputmode="decimal" placeholder="hasta $" aria-label="Costo unitario hasta" hidden>'
-  +'<button type="button" class="lm" id="i-al">Quitar</button></div><div id="i-t"></div>';
+  +'</div><div id="i-t"></div>';
  const defs=[{n:'Familia',f:x=>x.r[12]||'Sin familia'},{n:'Bodega',f:x=>x.r[8]},{n:'Color',f:x=>x.r[3]},{n:'Tamaño',f:x=>x.r[4]||'Sin tamaño'},
   {n:'Estado de la tela',f:x=>x.est||'(no aplica)'},{n:'Tipo',f:x=>x.tipo}];
  const unids=[...new Set(I.map(x=>x.r[10]))].sort((a,b)=>a.localeCompare(b,'es'));
@@ -1897,7 +1897,7 @@ async function rInv(){
  $('#i-c1').oninput=()=>{AV.c1=$('#i-c1').value.trim();pintar()};$('#i-c2').oninput=()=>{AV.c2=$('#i-c2').value.trim();pintar()};
  $('#i-pos').onchange=()=>{AV.pos=$('#i-pos').checked;pintar()};$('#i-so').value=AV.so||'fila';$('#i-so').onchange=()=>{AV.so=$('#i-so').value;pintar()};
  el.querySelectorAll('.kq').forEach(b=>b.onclick=()=>{AV.kq=AV.kq===b.dataset.k?'':b.dataset.k;pintar()});$('#i-mar').onchange=()=>{AV.mar=$('#i-mar').value;pintar()};
- $('#i-al').onclick=()=>{Object.assign(AV,{un:'',op:'',n1:'',n2:'',cop:'',c1:'',c2:'',pos:false,so:'fila',kq:''});$('#i-so').value='fila';$('#i-un').value='';$('#i-op').value='';$('#i-n1').value='';$('#i-n2').value='';$('#i-cop').value='';$('#i-c1').value='';$('#i-c2').value='';$('#i-pos').checked=false;sync();pintar()};
+ 
  pintar();
  $('#i-x').onclick=()=>{const C=cols();exportar('Inventarios',[
   {n:'Resumen por código',cab:['Código','Descripción','Cód. color','Color','Unidad','Costo unitario','Disponible','Reservado','Físico','Variación','Valor','Bodegas','Tamaños','Alerta','En faltantes (consumo)','Pedidos en faltantes'],rows:ultG.map(g=>[g.x0.r[0],g.x0.r[1],g.x0.r[2],g.x0.r[3],g.x0.r[10],Math.round(g.cu),Math.round(g.disp),Math.round(g.res),Math.round(g.fis),g.var===null?'Nuevo':g.var===undefined?'':Math.round(g.var),g.val,new Set(g.rs.map(y=>y.r[8])).size,new Set(g.rs.map(y=>y.r[4])).size,g.ago?'Agotado':g.com?'Comprometido':g.qui?'Sin movimiento':'',g.fal?Math.round(g.fal.con*100)/100:'',g.fal?[...g.fal.peds].join(', '):''])},
@@ -2423,7 +2423,7 @@ function rAdm(){
 }
 
 /* Navegación */
-const V={carga:['Carga',rCarga],faltantes:['Faltantes',rFaltantes],pending:['Pending',rPending],ana:['Análisis Pending',rAna],mix:['Análisis MIX',rMix],gar:['Garantías',rGar],des:['Despachos',rDes],inv:['Inventarios',rInv],tab:['Tablas',rTab],equipo:['Perfil',rEquipo]};
+const V={carga:['Carga',rCarga],gar:['Garantías',rGar],faltantes:['Faltantes',rFaltantes],pending:['Pending',rPending],ana:['Análisis Pending',rAna],mix:['Análisis MIX',rMix],des:['Despachos',rDes],inv:['Inventarios',rInv],tab:['Tablas',rTab],equipo:['Perfil',rEquipo]};
 /* Carga y Tablas solo aparecen para los administradores y para quien tenga ese permiso */
 const visible=k=>k==='carga'?perm('carga'):k==='tab'?perm('tablas'):true;
 function pintarNav(){
