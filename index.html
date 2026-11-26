@@ -1080,7 +1080,7 @@ async function rFaltantes(){
    val:pv.has(op)?pv.get(op):(q.v||0),vk:op||ped+'-'+r[g('# Item')],
    mat:isE?'ETTES · '+(fl===SIN_FECHA?SIN_FECHA:fd(fl)):(/^\d{4}-\d\d-\d\d$/.test(fl)?fd(fl):(fl?String(fl):'Sin fecha'))};
  }).sort((x,y)=>x.pedido.localeCompare(y.pedido)||num(x.item)-num(y.item));
- /* Hoja Accesorios: el pedido está en la columna F; distribuidor, agente, Comercial-Zona, marca, familias, días y valor salen de Pending.
+ /* Hoja Accesorios: el pedido está en la columna F; distribuidor, ejecutivo, Comercial-Zona, marca, familias, días y valor salen de Pending.
     Las columnas de ítem, OP, código, descripción, cantidad, fecha, área y observaciones se buscan por el nombre del encabezado. */
  const accDe=(A,refA)=>{
   if(!A||!A.rows)return[];
@@ -1152,11 +1152,11 @@ async function rFaltantes(){
  el.innerHTML='<h2 class="tt">Análisis de faltantes</h2><div class="chips"><span><b id="f-np"></b>pedidos</span><span><b id="f-nf"></b>faltantes</span><span><b id="f-nk"></b>consumo total</span><span><b id="f-nv"></b>valor</span>'
   +(p?'<span class="r"><b id="f-nc"></b>cambiaron de fecha</span><span class="r"><b id="f-ne"></b>ETTES cambiaron</span><span class="a"><b id="f-nn"></b>nuevos</span><span><b>'+SL.length+'</b>salieron'+(pe?' · $ '+Math.round(SLV).toLocaleString('es-CO'):'')+'</span>':'')
   +'</div><details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">'+'Archivo de hoy: '+esc(c.archivo)+' (cargado el '+esc(new Date(c.cargado).toLocaleString('es-CO'))+'). '+(p?'Comparado contra '+esc(p.archivo)+'. “HOY” se toma como la fecha del reporte ('+fd(refC)+'). ':'No hay carga anterior. '+pideCarga('En la pestaña Carga puedes subir una con “Cargar como día anterior”. ','Pídele al administrador que cargue la del día anterior para comparar. '))
-  +'El valor sale de Pending, cruzando por OP, y se cuenta una sola vez por OP aunque le falten varios componentes (en la grilla, las filas repetidas dicen “misma OP”). Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera), para cuadrar con Análisis Pending; quedan en el cuadre y en la hoja “Excluidos” al exportar. En los faltantes ETTES, la fecha de llegada de la hoja ETTES se copia también en Responsable y Observaciones (“'+SIN_FECHA+'” si no tiene).'+(c.ettes?'':' Este archivo se cargó sin la hoja ETTES: '+pideCarga('vuelve a cargarlo en la pestaña Carga.','pídele al administrador que lo vuelva a cargar.'))+(pe?'':' '+pideCarga('Carga Pending','Pídele al administrador que cargue Pending')+' para ver agente, zona, días, marca, familias y valor.')+'</p></details>'+slHtml
+  +'El valor sale de Pending, cruzando por OP, y se cuenta una sola vez por OP aunque le falten varios componentes (en la grilla, las filas repetidas dicen “misma OP”). Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera), para cuadrar con Análisis Pending; quedan en el cuadre y en la hoja “Excluidos” al exportar. En los faltantes ETTES, la fecha de llegada de la hoja ETTES se copia también en Responsable y Observaciones (“'+SIN_FECHA+'” si no tiene).'+(c.ettes?'':' Este archivo se cargó sin la hoja ETTES: '+pideCarga('vuelve a cargarlo en la pestaña Carga.','pídele al administrador que lo vuelva a cargar.'))+(pe?'':' '+pideCarga('Carga Pending','Pídele al administrador que cargue Pending')+' para ver ejecutivo, zona, días, marca, familias y valor.')+'</p></details>'+slHtml
   +(AC.length?'<p class="est">Incluye '+AC.length+(AC.length===1?' fila':' filas')+' de la hoja '+esc(c.acc.hoja)+' (pedido en la columna F, cruzado con Pending).</p>':'')
   +(iAr<0?'<p class="est">El Área (columna Q de la hoja Base) aparece cuando '+pideCarga('vuelvas a cargar el archivo de Faltantes en la pestaña Carga.','el administrador vuelva a cargar el archivo de Faltantes.')+'</p>':'')
-  +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre, agente o artículo" aria-label="Buscar">'+qfBtn('f')+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-t"></div>';
- const defs=[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.fam},{n:'Agente',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
+  +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre, ejecutivo o artículo" aria-label="Buscar">'+qfBtn('f')+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-t"></div>';
+ const defs=[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.fam},{n:'Ejecutivo',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
   {n:'Tipo de cortina',f:x=>x.df},{n:'Comercial-Zona',f:x=>x.ge},{n:'Distribuidor',f:x=>x.dist},
   {n:'Artículo',f:x=>x.art},{n:'Tamaño',f:x=>x.tam},{n:'Días',f:x=>x.dias,num:true,asc:true},defMat(),{n:'Estado',f:x=>x.est},{n:'Área',f:x=>x.area},{n:'Responsable',f:x=>x.resp},
   ...(AC.length?[{n:'Origen',f:x=>x.ori}]:[])];
@@ -1174,7 +1174,7 @@ async function rFaltantes(){
   if(!R.length){$('#f-t').innerHTML=vacio('Ningún faltante coincide con los filtros.');return}
   const GP=new Map();for(const x of R){let a=GP.get(x.pedido);if(!a){a=[];GP.set(x.pedido,a)}a.push(x)}
   const GR=[...GP.values()].map(a=>({a,v:a.reduce((t,y)=>t+(y.uno?y.val:0),0),k:a.reduce((t,y)=>t+y.con,0),st:a.some(y=>y.est==='Cambió')?'rojo':a.some(y=>y.est==='Nuevo')?'nuevo':''})).sort((u,w)=>w.v-u.v||u.a[0].pedido.localeCompare(w.a[0].pedido));
-  $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th>Agente</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
+  $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th>Ejecutivo</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
    +'<tr class="tot"><td colspan="4">Total general · '+GR.length.toLocaleString('es-CO')+(GR.length===1?' pedido':' pedidos')+'</td><td class="n">'+R.length.toLocaleString('es-CO')+'</td><td class="n">'+fk(TK)+'</td><td class="n">'+$m(TV)+'</td></tr>'
    +GR.map(g=>{const x=g.a[0];
     const sr='<tr class="seg det '+g.st+'"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="7"><table class="pnd2 fl"><thead><tr><th>Ítem</th><th>OP</th><th>Artículo</th><th>COD</th><th>Cod. Color</th><th>Tamaño</th><th>Fecha ayer</th><th>Fecha de llegada</th><th>Área</th><th>Observaciones</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
@@ -1186,7 +1186,7 @@ async function rFaltantes(){
  };
  pasa=filtros($('#f-b'),defs,L,pintar,'f');
  $('#f-q').value=FQ.f||'';$('#f-q').oninput=()=>{FQ.f=$('#f-q').value;pintar()};pintar();
- $('#f-x').onclick=()=>exportar('Faltantes',[{n:'Faltantes',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Cod. Distribuidor','Distribuidor','Agente','Fecha ayer','Fecha de llegada','Área','Estado','Marca','Familia Financiera','Estado agrupado','SubEstado','Comercial-Zona','Días','Tipo de cortina','Análisis de material','Responsable','Observaciones','Origen','Consumo','Valor (una vez por OP)','Valor de la OP'],
+ $('#f-x').onclick=()=>exportar('Faltantes',[{n:'Faltantes',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Cod. Distribuidor','Distribuidor','Ejecutivo','Fecha ayer','Fecha de llegada','Área','Estado','Marca','Familia Financiera','Estado agrupado','SubEstado','Comercial-Zona','Días','Tipo de cortina','Análisis de material','Responsable','Observaciones','Origen','Consumo','Valor (una vez por OP)','Valor de la OP'],
   rows:ult.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.cod,x.dist,x.ag,x.fat,x.flt,x.area,x.est,x.mar,x.fam,x.ea,x.sub,x.ge,x.dias,x.df,x.mat,x.resp,x.obs,x.ori,x.con,x.uno?x.val:0,x.val])},{n:'Consumo por COD y tamaño',cab:['COD','Cod. Color','Componente','Tamaño','Faltantes','Consumo'],rows:porCod(ult).flatMap(a=>a.t.map(t=>[a.cc,a.cl,a.comp,t.tam,t.n,Math.round(t.con*100)/100]))},...(SL.length?[{n:'Salieron por artículo',cab:['Artículo','Faltantes','Pedidos','Consumo','Valor','Sin valor'],rows:[...SA.map(g=>[g.art,g.n,g.np,Math.round(g.con*100)/100,g.val,g.sv]),['Total que salió',SL.length,SLP,Math.round(SLK*100)/100,SLV,SLS]]},{n:'Salieron detalle',cab:['Pedido','Ítem','OP','Artículo','Distribuidor','Consumo','Valor'],rows:SL.map(x=>[x.pedido,x.item,x.op,x.art,x.dist,x.con,x.uno?x.val:0])}]:[]),...(OUT.length?[{n:'Excluidos (otro estado)',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Distribuidor','Estado agrupado en Pending','Consumo','Valor de la OP'],rows:OUT.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.dist,pea.get(x.op),x.con,x.val])}]:[]),hojaFiltros(pasa,$('#f-q').value)]);
 }
 
@@ -1195,8 +1195,8 @@ async function rFaltantes(){
 const SEED={"estados":[],"zonas":[],"dealers":[]};
 const SEED0=JSON.parse(JSON.stringify(SEED));
 /* Filtros comunes de Pending y Análisis Pending, en el mismo orden */
-/* Orden acordado en todas las consultas: Marca, Familia Financiera, Agente, Estados agrupados, SubEstado y luego el resto */
-const defsComunes=()=>[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.cf},{n:'Agente',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
+/* Orden acordado en todas las consultas: Marca, Familia Financiera, Ejecutivo, Estados agrupados, SubEstado y luego el resto */
+const defsComunes=()=>[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.cf},{n:'Ejecutivo',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
  {n:'Correlaciones',f:x=>x.corr,uk:x=>x.ped,sinVacio:true,porCant:true,esp:true},{n:'Tipo de cortina',f:x=>x.fam},{n:'Comercial-Zona',f:x=>x.ge},{n:'Análisis Fec-Intaken',f:x=>x.fi},{n:'Distribuidor',f:x=>x.cli},
  {n:'Seguimiento de cartera',f:x=>x.ca},{n:'Promoción 72 horas',f:x=>x.h72},{n:'Tipo de inventarios',f:x=>x.ti},defMat()];
 async function datosPending(){
@@ -1240,7 +1240,7 @@ async function rPending(){
   +'<p class="est" id="p-n"></p><div id="p-t"></div>';
  const defs=[...defsComunes(),{n:'Días P.',f:x=>x.di,num:true},{n:'Canal',f:x=>x.can}];
  const C=[['Pedido',x=>x.ped],['Ítem',x=>x.it],['OP',x=>x.op],['Marca',x=>x.mar],['Cod. DA',x=>x.cod],['Distribuidor',x=>x.cli],['Producto',x=>x.pr],['Ord. Compra',x=>x.oc],['Venta',x=>x.ve],
-  ['Agente',x=>x.ag],['Estado',x=>x.ea],['Subestado',x=>x.sub],['Días',x=>x.di],['Zona',x=>x.ge],['Material llega',x=>x.mat],['Fec. Intaken',x=>x.fi],['Inventario',x=>x.ti],['72 horas',x=>x.h72],['Cartera',x=>x.ca]];
+  ['Ejecutivo',x=>x.ag],['Estado',x=>x.ea],['Subestado',x=>x.sub],['Días',x=>x.di],['Zona',x=>x.ge],['Material llega',x=>x.mat],['Fec. Intaken',x=>x.fi],['Inventario',x=>x.ti],['72 horas',x=>x.h72],['Cartera',x=>x.ca]];
  const C1=[['Pedido',x=>x.ped],['Ítem',x=>x.it],['OP',x=>x.op],['Cod. DA',x=>x.cod],['Distribuidor',x=>x.cli],['Producto',x=>x.pr],['Ord. Compra',x=>x.oc],['Venta',x=>x.ve],['Días',x=>x.di]];
  const C2=[['Correlación',x=>x.corr]];
  const cexp=ped=>{if(com[ped])return com[ped].t;return L.filter(y=>y.ped===ped&&com[y.key]&&com[y.key].t).map(y=>y.it+': '+com[y.key].t).join(' | ')};
@@ -1259,7 +1259,7 @@ async function rPending(){
   const vf=v=>{if(v==null||v==='')return'';if(v instanceof Date)return v.toLocaleDateString('es-CO');if(typeof v==='number')return v.toLocaleString('es-CO',{maximumFractionDigits:2});return fd(String(v).trim())};
   const cped=a=>{const k=a[0].ped;if(com[k])return com[k].t;return a.filter(y=>com[y.key]&&com[y.key].t).map(y=>(a.length>1?y.it+': ':'')+com[y.key].t).join(' | ')};
   const fm=v=>Math.round(v).toLocaleString('es-CO'),uni=(a,f)=>[...new Set(a.map(f).filter(v=>v!==''&&v!=null))];
-  $('#p-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. DA</th><th>Distribuidor</th><th>Agente</th><th>Ord. Compra</th><th>Ítems</th><th>Venta</th><th>Días</th><th>Comentario</th></tr></thead><tbody>'
+  $('#p-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. DA</th><th>Distribuidor</th><th>Ejecutivo</th><th>Ord. Compra</th><th>Ítems</th><th>Venta</th><th>Días</th><th>Comentario</th></tr></thead><tbody>'
    +V.map(a=>{const x=a[0],oc=uni(a,y=>y.oc),co=uni(a,y=>y.corr);
     const sr='<tr class="seg det"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="9">'+(co.length?'<div class="co"><i>Correlación</i> '+esc(co.join(', '))+'</div>':'')
      +'<table class="pnd2"><thead><tr><th>Ítem</th><th>OP</th><th>Producto</th><th>COD ARTICULO</th><th>'+esc(d.cab[23]||'X')+'</th><th>Estado agrupado</th><th>Venta</th></tr></thead><tbody>'
@@ -1381,9 +1381,9 @@ async function datosGar(){
  }
  if(ms){const sinE=new Map();I.forEach(y=>{if(/BD-Master$/.test(y.ej)){const s=sinE.get(y.cod)||{n:y.dist,g:new Set(),t:y.ej};s.g.add(y.id);sinE.set(y.cod,s)}});
   if(sinE.size){const L2=[...sinE.values()].sort((a,b)=>b.g.size-a.g.size),f=s=>s.n+' ('+(s.t==='No está en BD-Master'?'no está':'sin nombre')+', '+s.g.size+')';
-   aviso.push(sinE.size+' distribuidor'+(sinE.size>1?'es':'')+' sin empleado responsable en BD-Master: '+L2.slice(0,12).map(f).join('; ')+(L2.length>12?' y '+(L2.length-12)+' más. Filtra Agente para verlos todos.':'.'))}}
+   aviso.push(sinE.size+' distribuidor'+(sinE.size>1?'es':'')+' sin empleado responsable en BD-Master: '+L2.slice(0,12).map(f).join('; ')+(L2.length>12?' y '+(L2.length-12)+' más. Filtra Ejecutivo para verlos todos.':'.'))}}
  I.sort((a,b)=>a.id.localeCompare(b.id,'es',{numeric:true})||a.ped.localeCompare(b.ped)||num(a.ip)-num(b.ip));
- return{g,I,aviso,faltan:[!ms&&'BD-Master (agente)',!ms&&!pe&&'Pending (Comercial-Zona)',!gu&&'Guías de despachos'].filter(Boolean)};
+ return{g,I,aviso,faltan:[!ms&&'BD-Master (ejecutivo)',!ms&&!pe&&'Pending (Comercial-Zona)',!gu&&'Guías de despachos'].filter(Boolean)};
 }
 /* Busca la columna por nombre exacto y, si no está, por parecido */
 const colDe=(cab,ex,rx)=>{let i=-1;for(const n of ex){i=cab.indexOf(n);if(i>=0)return i}return cab.findIndex(c=>rx.test(String(c)))};
@@ -1393,7 +1393,7 @@ function ejecutivos(ms,pe,zon,eje,aviso){
  const gz=z=>{z=nrm(z);return z?(zon.get(z)||'Otros'):''};
  if(ms){
   const ic=colDe(ms.cab,['Cuenta de cliente'],/cuenta de cliente/i);
-  const ia=colDe(ms.cab,['Empleado responsable','Empleado Responsable','Ejecutivo Asignado','Ejecutivo'],/empleado\s*responsable|ejecutivo|agente|vendedor|asesor|encargado/i);
+  const ia=colDe(ms.cab,['Empleado responsable','Empleado Responsable','Ejecutivo'],/empleado\s*responsable|ejecutivo|agente|vendedor|asesor|encargado/i);
   const iz=colDe(ms.cab,['Zona','Comercial-Zona'],/zona/i);
   if(ia<0)aviso.push('No encontré la columna del ejecutivo en BD-Master. Sus encabezados son: '+ms.cab.filter(Boolean).join(', ')+'.');
   if(ic<0)aviso.push('No encontré la columna “Cuenta de cliente” en BD-Master.');
@@ -1492,7 +1492,7 @@ async function rGar(){
   +'<label>Días en estado <select id="g-op"><option value="">Cualquiera</option><option value="gt">Mayor que (&gt;)</option><option value="ge">Mayor o igual (&ge;)</option><option value="lt">Menor que (&lt;)</option><option value="le">Menor o igual (&le;)</option><option value="eq">Igual a (=)</option><option value="bt">Entre</option></select></label>'
   +'<input id="g-n1" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Número de días"><span id="g-y" hidden>y</span><input id="g-n2" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Hasta cuántos días" hidden>'
   +'</div><div id="g-t"></div>';
- const defs=[{n:'Agente',f:x=>x.ej},{n:'Comercial-Zona',f:x=>x.ge},{n:'Negocio',f:x=>x.neg},{n:'Definición',f:x=>x.def},{n:'Estado',f:x=>x.est},
+ const defs=[{n:'Ejecutivo',f:x=>x.ej},{n:'Comercial-Zona',f:x=>x.ge},{n:'Negocio',f:x=>x.neg},{n:'Definición',f:x=>x.def},{n:'Estado',f:x=>x.est},
   {n:'Distribuidor',f:x=>x.dist},{n:'Días en estado',f:x=>x.dias,num:true},{n:'Tipo de cortina',f:x=>x.lin},{n:'Guía de despacho',f:x=>x.gu?'Con guía':'Sin guía'}].map(d=>({...d,uk:x=>x.id}));
  /* Los filtros actúan sobre los ítems (como los segmentadores) y los conteos son garantías */
  let pasa=()=>true,ult=[];
@@ -1517,7 +1517,7 @@ async function rGar(){
   $('#g-ng').textContent=new Set(R.map(x=>x.id)).size.toLocaleString('es-CO');$('#g-ni').textContent=NI.toLocaleString('es-CO');
   $('#g-nd').textContent=new Set(R.map(x=>x.dist)).size.toLocaleString('es-CO');$('#g-nm').textContent=R.filter(x=>x.al==='Fuera de tiempo').length.toLocaleString('es-CO');
   if(!R.length){$('#g-t').innerHTML=vacio('Ninguna garantía coincide con los filtros.');return}
-  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:112px"><col style="width:100px"><col><col style="width:170px"><col style="width:112px"><col style="width:150px"><col style="width:86px"><col style="width:140px"><col style="width:112px"></colgroup><thead><tr><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Agente</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th></tr></thead><tbody>'
+  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:112px"><col style="width:100px"><col><col style="width:170px"><col style="width:112px"><col style="width:150px"><col style="width:86px"><col style="width:140px"><col style="width:112px"></colgroup><thead><tr><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Ejecutivo</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th></tr></thead><tbody>'
    +'<tr class="tot"><td colspan="8">Total general · '+R.length.toLocaleString('es-CO')+' filas</td><td class="n">'+NI.toLocaleString('es-CO')+'</td></tr>';
   R.forEach((x,i)=>{
    t+='<tr><td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="agt" title="'+esc(x.ej)+'">'+esc(x.ej)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td>'+esc(x.gu)+'</td><td class="n">'+x.n+'</td></tr>';
@@ -1540,7 +1540,7 @@ async function rGar(){
  
  pintar();
  $('#g-x').onclick=()=>exportar('Garantias',[
-  {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Agente','Comercial-Zona','Tipo de cortina','Fecha garantía','Cliente final','Factura'],
+  {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Ejecutivo','Comercial-Zona','Tipo de cortina','Fecha garantía','Cliente final','Factura'],
    rows:ult.map(x=>[x.id,x.ped,x.dist,x.def,x.neg,x.est,fd(x.fe),x.dias,x.al,x.gu,x.n,x.ej,x.ge,x.linT,fd(x.fecha),x.cf,x.fac])},
   {n:'Detalle de ítems',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Estado','Ítem del pedido','Ítem en la garantía','Producto','Tipo de cortina','Cantidad','Problema','Análisis'],
    rows:ult.flatMap(x=>x.its.map(y=>[x.id,x.ped,x.dist,x.est,y.ip,y.it,y.pr,y.lin,y.can,y.pb,y.an]))},
