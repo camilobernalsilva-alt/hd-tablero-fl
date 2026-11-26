@@ -808,6 +808,9 @@ function tabla(cols,rows,cls){
   +'</tbody></table></div>';
 }
 const vacio=t=>'<div class="vacio">'+t+'</div>';
+/* Indicación para cargar datos: quien no tiene permiso de Carga no ve esa pestaña, así que se le pide al administrador */
+const pideCarga=(t,a)=>perm('carga')?t:(a||'Pídele al administrador que los cargue.');
+const sinDatos=(que,como)=>vacio('Todavía no hay datos de '+que+'. '+pideCarga(como));
 const opts=(l,t)=>'<option value="">'+t+'</option>'+l.map(x=>'<option>'+esc(x)+'</option>').join('');
 
 /* Fecha de llegada de Faltantes: HOY = fecha del reporte; ETTES = fecha de la hoja ETTES por pedido */
@@ -1039,7 +1042,7 @@ function porCod(R){
 /* Faltantes (RES.Faltantes: pedido, ítem, OP, artículo, distribuidor, fechas y valor) */
 async function rFaltantes(){
  const el=$('#faltantes'),c=await get('faltantes'),p=await get('faltantes_prev'),pe=await get('pending');
- if(!c){el.innerHTML=vacio('Todavía no hay datos de Faltantes. Cárgalos en la pestaña Carga.');return}
+ if(!c){el.innerHTML=sinDatos('Faltantes','Cárgalos en la pestaña Carga.');return}
  const ci=n=>c.cab.indexOf(n),K=['# Pedido','# Item','COD'];
  const key=(r,m)=>m.map(i=>i<0?'':String(r[i]).trim()).join('|');
  const refC=refDate(c),refP=p?refDate(p):'';
@@ -1115,7 +1118,7 @@ async function rFaltantes(){
   return[...m.values()].map(g=>({...g,np:g.ps.size})).sort((p,q)=>q.val-p.val||q.n-p.n||p.art.localeCompare(q.art,'es'))})();
  const fk2=v=>v?v.toLocaleString('es-CO',{maximumFractionDigits:2}):'';
  const SLK=SL.reduce((s,x)=>s+x.con,0),SLP=new Set(SL.map(x=>x.pedido)).size;
- const slHtml=SL.length?'<details class="sl"><summary>Faltantes que salieron: '+SL.length+' en '+SA.length+(SA.length===1?' artículo':' artículos')+(pe?' · $ '+Math.round(SLV).toLocaleString('es-CO'):' (carga Pending para ver su valor)')+'</summary>'
+ const slHtml=SL.length?'<details class="sl"><summary>Faltantes que salieron: '+SL.length+' en '+SA.length+(SA.length===1?' artículo':' artículos')+(pe?' · $ '+Math.round(SLV).toLocaleString('es-CO'):' ('+pideCarga('carga Pending','pídele al administrador que cargue Pending')+' para ver su valor)')+'</summary>'
   +'<div class="tw"><table class="pv"><thead><tr><th>Artículo</th><th class="n">Faltantes</th><th class="n">Pedidos</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
   +'<tr class="tot"><td>Total que salió · '+SA.length+(SA.length===1?' artículo':' artículos')+'</td><td class="n">'+SL.length+'</td><td class="n">'+SLP+'</td><td class="n">'+fk2(SLK)+'</td><td class="n">'+($m(SLV)||'$ 0')+'</td></tr>'
   +SA.map(g=>'<tr><td class="wr">'+esc(g.art)+'</td><td class="n">'+g.n+'</td><td class="n">'+g.np+'</td><td class="n">'+fk2(g.con)+'</td><td class="n">'+(g.sv===g.n?'<span class="est">Sin valor</span>':$m(g.val)+(g.sv?' <span class="est">('+g.sv+' sin valor)</span>':''))+'</td></tr>').join('')
@@ -1147,10 +1150,10 @@ async function rFaltantes(){
  }
  el.innerHTML='<h2 class="tt">Análisis de faltantes</h2><div class="chips"><span><b id="f-np"></b>pedidos</span><span><b id="f-nf"></b>faltantes</span><span><b id="f-nk"></b>consumo total</span><span><b id="f-nv"></b>valor</span>'
   +(p?'<span class="r"><b id="f-nc"></b>cambiaron de fecha</span><span class="r"><b id="f-ne"></b>ETTES cambiaron</span><span class="a"><b id="f-nn"></b>nuevos</span><span><b>'+SL.length+'</b>salieron'+(pe?' · $ '+Math.round(SLV).toLocaleString('es-CO'):'')+'</span>':'')
-  +'</div><details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">'+'Archivo de hoy: '+esc(c.archivo)+' (cargado el '+esc(new Date(c.cargado).toLocaleString('es-CO'))+'). '+(p?'Comparado contra '+esc(p.archivo)+'. “HOY” se toma como la fecha del reporte ('+fd(refC)+'). ':'No hay carga anterior. En la pestaña Carga puedes subir una con “Cargar como día anterior”. ')
-  +'El valor sale de Pending, cruzando por OP, y se cuenta una sola vez por OP aunque le falten varios componentes (en la grilla, las filas repetidas dicen “misma OP”). Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera), para cuadrar con Análisis Pending; quedan en el cuadre y en la hoja “Excluidos” al exportar. En los faltantes ETTES, la fecha de llegada de la hoja ETTES se copia también en Responsable y Observaciones (“'+SIN_FECHA+'” si no tiene).'+(c.ettes?'':' Este archivo se cargó sin la hoja ETTES: vuelve a cargarlo en la pestaña Carga.')+(pe?'':' Carga Pending para ver agente, zona, días, marca, familias y valor.')+'</p></details>'+slHtml
+  +'</div><details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">'+'Archivo de hoy: '+esc(c.archivo)+' (cargado el '+esc(new Date(c.cargado).toLocaleString('es-CO'))+'). '+(p?'Comparado contra '+esc(p.archivo)+'. “HOY” se toma como la fecha del reporte ('+fd(refC)+'). ':'No hay carga anterior. '+pideCarga('En la pestaña Carga puedes subir una con “Cargar como día anterior”. ','Pídele al administrador que cargue la del día anterior para comparar. '))
+  +'El valor sale de Pending, cruzando por OP, y se cuenta una sola vez por OP aunque le falten varios componentes (en la grilla, las filas repetidas dicen “misma OP”). Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera), para cuadrar con Análisis Pending; quedan en el cuadre y en la hoja “Excluidos” al exportar. En los faltantes ETTES, la fecha de llegada de la hoja ETTES se copia también en Responsable y Observaciones (“'+SIN_FECHA+'” si no tiene).'+(c.ettes?'':' Este archivo se cargó sin la hoja ETTES: '+pideCarga('vuelve a cargarlo en la pestaña Carga.','pídele al administrador que lo vuelva a cargar.'))+(pe?'':' '+pideCarga('Carga Pending','Pídele al administrador que cargue Pending')+' para ver agente, zona, días, marca, familias y valor.')+'</p></details>'+slHtml
   +(AC.length?'<p class="est">Incluye '+AC.length+(AC.length===1?' fila':' filas')+' de la hoja '+esc(c.acc.hoja)+' (pedido en la columna F, cruzado con Pending).</p>':'')
-  +(iAr<0?'<p class="est">El Área (columna Q de la hoja Base) aparece cuando vuelvas a cargar el archivo de Faltantes en la pestaña Carga.</p>':'')
+  +(iAr<0?'<p class="est">El Área (columna Q de la hoja Base) aparece cuando '+pideCarga('vuelvas a cargar el archivo de Faltantes en la pestaña Carga.','el administrador vuelva a cargar el archivo de Faltantes.')+'</p>':'')
   +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre, agente o artículo" aria-label="Buscar">'+qfBtn('f')+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-t"></div>';
  const defs=[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.fam},{n:'Agente',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
   {n:'Tipo de cortina',f:x=>x.df},{n:'Comercial-Zona',f:x=>x.ge},{n:'Distribuidor',f:x=>x.dist},
@@ -1227,7 +1230,7 @@ const comb=new Map();L.forEach(x=>{let s=comb.get(x.ped);if(!s){s=new Set();comb
 }
 async function rPending(){
  const el=$('#pending'),D=await datosPending();
- if(!D){el.innerHTML=vacio('Todavía no hay datos de Pending. Cárgalos en la pestaña Carga.');return}
+ if(!D){el.innerHTML=sinDatos('Pending','Cárgalos en la pestaña Carga.');return}
  const{d,L,falt,com}=D;
  el.innerHTML='<div class="chips"><span><b id="n-p"></b>pedidos</span><span><b id="n-i"></b>ítems</span><span><b id="n-v"></b>venta</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Una fila por pedido, ordenada por venta total de mayor a menor. Los ítems de cada pedido van en la segunda línea (⊞). Fuente: '+esc(d.archivo)+'.'
@@ -1280,7 +1283,7 @@ const ORDEST=['Digitados','Cartera','Faltante','Producción','No facturados'];
 const $m=v=>v?'$ '+Math.round(v).toLocaleString('es-CO'):'';
 async function rAna(){
  const el=$('#ana'),D=await datosPending();
- if(!D){el.innerHTML=vacio('Todavía no hay datos de Pending. Cárgalos en la pestaña Carga.');return}
+ if(!D){el.innerHTML=sinDatos('Pending','Cárgalos en la pestaña Carga.');return}
  const{d,L,falt}=D;
  const cols=[...new Set(L.map(x=>x.ea))].sort((a,b)=>{const i=ORDEST.indexOf(a),j=ORDEST.indexOf(b);return(i<0?99:i)-(j<0?99:j)||a.localeCompare(b,'es')});
  el.innerHTML='<h2 class="tt">Análisis Pending detallado</h2><div class="chips"><span><b id="a-np"></b>pedidos</span><span><b id="a-ni"></b>ítems</span><span><b id="a-nv"></b>venta</span></div><details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Suma de venta por pedido y distribuidor, separada por estado agrupado y ordenada por el total. Haz clic en ⊞ para ver los ítems del pedido. Fuente: '+esc(d.archivo)+'.'
@@ -1424,7 +1427,7 @@ function agruparGar(I){
    Mismos filtros que Análisis Pending detallado. La primera vez arranca con Producción y No facturados. */
 async function rMix(){
  const el=$('#mix'),D=await datosPending();
- if(!D){el.innerHTML=vacio('Todavía no hay datos de Pending. Cárgalos en la pestaña Carga.');return}
+ if(!D){el.innerHTML=sinDatos('Pending','Cárgalos en la pestaña Carga.');return}
  const{d,L,falt}=D;
  if(!FS.m)FS.m={'Estados agrupados':['Producción','No facturados']};
  el.innerHTML='<h2 class="tt">Análisis MIX</h2><div class="chips"><span><b id="m-np"></b>pedidos</span><span><b id="m-ni"></b>ítems</span><span><b id="m-nq"></b>unidades</span><span><b id="m-nm"></b>M2</span><span><b id="m-nv"></b>venta</span></div>'
@@ -1477,7 +1480,7 @@ async function rMix(){
 }
 async function rGar(){
  const el=$('#gar'),D=await datosGar();
- if(!D){el.innerHTML=vacio('Todavía no hay datos de Garantías. Cárgalos en la pestaña Carga.');return}
+ if(!D){el.innerHTML=sinDatos('Garantías','Cárgalos en la pestaña Carga.');return}
  const{g,I,faltan,aviso}=D;
  el.innerHTML='<h2 class="tt">Garantías y reparaciones</h2><div class="chips"><span><b id="g-ng"></b>garantías y reparaciones</span><span><b id="g-ni"></b>ítems reclamados</span><span><b id="g-nd"></b>distribuidores</span><span class="o"><b id="g-nm"></b>fuera de tiempo</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Una fila por garantía y pedido. Ordenada de más a menos días en estado. Días en estado: días hábiles (sin sábados, domingos ni festivos de Colombia) desde el último cambio de estado hasta el día de carga de la base ('+fd(new Date(g.cargado).toLocaleDateString('en-CA'))+'). En naranja: Transferida con 2 o más días hábiles, Enviar accesorios con 4 o más, En planta y Atender en obra con 5 o más, y Respuesta Cliente con más de 30. Nro de ítems reclamados: cuántos ítems del pedido se reclaman en la garantía. Haz clic en ⊞ para verlos con su ítem del pedido (columna itemPed). Fuente: '+esc(g.archivo)+'.'
@@ -1624,7 +1627,7 @@ async function datosDes(){
 }
 async function rDes(){
  const el=$('#des'),D=await datosDes();
- if(!D.gu&&!D.dr&&!D.ng){el.innerHTML='<h2 class="tt">Despachos</h2>'+vacio('Todavía no hay datos de despachos. Carga Guías de despachos, DRIVE CAC & ALMACEN e Informe de negocios en la pestaña Carga.');return}
+ if(!D.gu&&!D.dr&&!D.ng){el.innerHTML='<h2 class="tt">Despachos</h2>'+sinDatos('despachos','Carga Guías de despachos, DRIVE CAC & ALMACEN e Informe de negocios en la pestaña Carga.');return}
  const rng=(rows,fi)=>{const f=rows.map(r=>fDes(fi(r))).filter(v=>/^\d{4}-\d\d-\d\d$/.test(v)).sort();return f.length?fd(f[0])+' al '+fd(f[f.length-1]):'sin fechas'};
  const fte=(t,b,txt)=>'<li><b>'+t+'</b> '+(b?esc(b.archivo)+' · '+txt:'<span class="r">sin cargar</span>')+'</li>';
  el.innerHTML='<h2 class="tt">Despachos</h2>'
@@ -1758,7 +1761,7 @@ function telaDe(x){
 const fnum=(v,d)=>v.toLocaleString('es-CO',{maximumFractionDigits:d==null?2:d});
 async function rInv(){
  const el=$('#inv'),rec=await get('inventario');
- if(!rec){el.innerHTML=vacio('Todavía no hay datos de Inventarios. Carga el archivo de saldos en la pestaña Carga.');return}
+ if(!rec){el.innerHTML=sinDatos('Inventarios','Carga el archivo de saldos en la pestaña Carga.');return}
  const dias=(await get('inv_dias'))||[],pd=[...dias].reverse().find(d=>d<rec.dia),pv=pd?new Map(await get('inv_'+pd)||[]):null;
  const hd=dias.filter(d=>d<=rec.dia),hm=[];for(const d of hd){const a=await get('inv_'+d);if(a)hm.push([d,new Map(a)])}
  const fa=await get('faltantes'),FM=new Map();
@@ -1916,7 +1919,7 @@ async function rTab(){
  const guard=await get('tablas')||{};
  /* Distribuidor de cada código: columna B "Empresa" de BD-Master, cruzada por "Cuenta de cliente" (el cero que quita Excel se recupera con kCod) */
  const ms=await get('master'),EMP=new Map();let empAv='';
- if(!ms)empAv='Carga BD-Master en la pestaña Carga para ver el distribuidor de cada código.';
+ if(!ms)empAv=pideCarga('Carga BD-Master en la pestaña Carga','Pídele al administrador que cargue BD-Master')+' para ver el distribuidor de cada código.';
  else{let ic=colDe(ms.cab,['Cuenta de cliente'],/cuenta de cliente/i),ie=colDe(ms.cab,['Empresa'],/^\s*empresa/i);if(ie<0&&ms.cab.length>1)ie=1;
   if(ic<0||ie<0)empAv='No encontré la columna '+(ic<0?'“Cuenta de cliente”':'“Empresa”')+' en BD-Master. Sus encabezados son: '+ms.cab.filter(Boolean).join(', ')+'.';
   else for(const r of ms.rows){const k=kCod(r[ic]),e=nrm(r[ie]);if(k&&e&&!EMP.has(k))EMP.set(k,e)}}
