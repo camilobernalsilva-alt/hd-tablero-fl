@@ -375,7 +375,7 @@ details.ms.mt .pn{width:384px;max-height:min(82vh,720px);overflow:auto;padding:1
 .mt .mf{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #DEE1E2;padding-top:8px;margin-top:2px;font-size:13px;color:var(--mut)}
 .mt .mf b{color:var(--ink)}
 @media(max-width:700px){details.ms.mt .pn{width:auto}}
-table.pnd td.dd{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+table.pnd td.dd{max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}table.pnd td.dd.ag{max-width:200px}
 table.pnd th,table.pnd td{white-space:nowrap}
 tr.seg td.sg.pd{padding:0 12px 10px 44px;font-size:13px;color:var(--tx,#1F2528)}
 tr.seg td.sg.pd .co{margin:0 0 6px;color:var(--mut);font-size:12px}
@@ -399,6 +399,7 @@ table.pv.gar td,table.pv.gar th{overflow:hidden;text-overflow:ellipsis}
 table.pv.gar th{white-space:normal;line-height:1.2;vertical-align:middle}
 table.pv.gar td:nth-child(2){min-width:0;white-space:nowrap}
 table.pv.gar td.dn{white-space:nowrap}
+table.pv.gar td.agt{white-space:nowrap}
 table.pv.gar tr.det td.wr{white-space:normal;max-width:none;overflow:visible}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
@@ -1258,13 +1259,13 @@ async function rPending(){
   const vf=v=>{if(v==null||v==='')return'';if(v instanceof Date)return v.toLocaleDateString('es-CO');if(typeof v==='number')return v.toLocaleString('es-CO',{maximumFractionDigits:2});return fd(String(v).trim())};
   const cped=a=>{const k=a[0].ped;if(com[k])return com[k].t;return a.filter(y=>com[y.key]&&com[y.key].t).map(y=>(a.length>1?y.it+': ':'')+com[y.key].t).join(' | ')};
   const fm=v=>Math.round(v).toLocaleString('es-CO'),uni=(a,f)=>[...new Set(a.map(f).filter(v=>v!==''&&v!=null))];
-  $('#p-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. DA</th><th>Distribuidor</th><th>Ord. Compra</th><th>Ítems</th><th>Venta</th><th>Días</th><th>Comentario</th></tr></thead><tbody>'
+  $('#p-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. DA</th><th>Distribuidor</th><th>Agente</th><th>Ord. Compra</th><th>Ítems</th><th>Venta</th><th>Días</th><th>Comentario</th></tr></thead><tbody>'
    +V.map(a=>{const x=a[0],oc=uni(a,y=>y.oc),co=uni(a,y=>y.corr);
-    const sr='<tr class="seg det"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="8">'+(co.length?'<div class="co"><i>Correlación</i> '+esc(co.join(', '))+'</div>':'')
+    const sr='<tr class="seg det"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="9">'+(co.length?'<div class="co"><i>Correlación</i> '+esc(co.join(', '))+'</div>':'')
      +'<table class="pnd2"><thead><tr><th>Ítem</th><th>OP</th><th>Producto</th><th>COD ARTICULO</th><th>'+esc(d.cab[23]||'X')+'</th><th>Estado agrupado</th><th>Venta</th></tr></thead><tbody>'
      +a.map(y=>'<tr><td class="n">'+esc(y.it)+'</td><td>'+esc(y.op)+'</td><td>'+esc(y.pr)+'</td><td>'+esc(vf(y.cw))+'</td><td>'+esc(vf(y.cx))+'</td><td>'+esc(y.ea)+'</td><td class="n">'+fm(y.ve)+'</td></tr>').join('')
      +'</tbody></table></td></tr>';
-    return'<tr><td>'+segTg(sr)+esc(x.ped)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.cli)+'">'+esc(x.cli)+'</td><td class="dd" title="'+esc(oc.join(', '))+'">'+esc(oc.join(', '))+(oc.length>1?'':'')+'</td>'
+    return'<tr><td>'+segTg(sr)+esc(x.ped)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.cli)+'">'+esc(x.cli)+'</td><td class="dd ag" title="'+esc(x.ag||'')+'">'+esc(x.ag||'')+'</td><td class="dd" title="'+esc(oc.join(', '))+'">'+esc(oc.join(', '))+(oc.length>1?'':'')+'</td>'
      +'<td class="n">'+a.length+'</td><td class="n">'+fm(a.reduce((t,y)=>t+y.ve,0))+'</td><td class="n">'+fm(Math.max(...a.map(y=>y.di)))+'</td><td><input class="cm" data-k="'+esc(x.ped)+'" value="'+esc(cped(a))+'" aria-label="Comentario del pedido '+esc(x.ped)+'" placeholder="Escribir…"></td></tr>'+sr}).join('')
    +'</tbody></table></div>';
   $('#p-t').querySelectorAll('.cm').forEach(i=>i.onchange=async()=>{
@@ -1516,11 +1517,11 @@ async function rGar(){
   $('#g-ng').textContent=new Set(R.map(x=>x.id)).size.toLocaleString('es-CO');$('#g-ni').textContent=NI.toLocaleString('es-CO');
   $('#g-nd').textContent=new Set(R.map(x=>x.dist)).size.toLocaleString('es-CO');$('#g-nm').textContent=R.filter(x=>x.al==='Fuera de tiempo').length.toLocaleString('es-CO');
   if(!R.length){$('#g-t').innerHTML=vacio('Ninguna garantía coincide con los filtros.');return}
-  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:112px"><col style="width:100px"><col><col style="width:112px"><col style="width:150px"><col style="width:86px"><col style="width:140px"><col style="width:112px"></colgroup><thead><tr><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th></tr></thead><tbody>'
-   +'<tr class="tot"><td colspan="7">Total general · '+R.length.toLocaleString('es-CO')+' filas</td><td class="n">'+NI.toLocaleString('es-CO')+'</td></tr>';
+  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:112px"><col style="width:100px"><col><col style="width:170px"><col style="width:112px"><col style="width:150px"><col style="width:86px"><col style="width:140px"><col style="width:112px"></colgroup><thead><tr><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Agente</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th></tr></thead><tbody>'
+   +'<tr class="tot"><td colspan="8">Total general · '+R.length.toLocaleString('es-CO')+' filas</td><td class="n">'+NI.toLocaleString('es-CO')+'</td></tr>';
   R.forEach((x,i)=>{
-   t+='<tr><td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td>'+esc(x.gu)+'</td><td class="n">'+x.n+'</td></tr>';
-   x.its.forEach(y=>{t+='<tr class="det d'+i+'" hidden><td class="n">ítem '+esc(y.it)+'</td><td colspan="6" class="wr">'+esc(y.pr)+(y.lin?' <span class="sb">'+esc(y.lin)+'</span>':'')+(y.pb?'<br>Problema: '+esc(y.pb):'')+(y.an&&y.an!=='.'?'<br>Análisis: '+esc(y.an):'')+'</td><td class="n">ítem pedido '+esc(y.ip)+'</td></tr>'});
+   t+='<tr><td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="agt" title="'+esc(x.ej)+'">'+esc(x.ej)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td>'+esc(x.gu)+'</td><td class="n">'+x.n+'</td></tr>';
+   x.its.forEach(y=>{t+='<tr class="det d'+i+'" hidden><td class="n">ítem '+esc(y.it)+'</td><td colspan="7" class="wr">'+esc(y.pr)+(y.lin?' <span class="sb">'+esc(y.lin)+'</span>':'')+(y.pb?'<br>Problema: '+esc(y.pb):'')+(y.an&&y.an!=='.'?'<br>Análisis: '+esc(y.an):'')+'</td><td class="n">ítem pedido '+esc(y.ip)+'</td></tr>'});
   });
   $('#g-t').innerHTML=t+'</tbody></table></div>';
   $('#g-t').querySelectorAll('.tg').forEach(b=>b.onclick=()=>{
