@@ -1545,6 +1545,8 @@ async function rGar(){
    No depende de Pending: sirve para cualquier mes que esté en los archivos cargados. */
 const uniDe=v=>{if(v==null||v==='')return'';const n=typeof v==='number'?v:Number(String(v).replace(/\./g,'').replace(',','.'));return isNaN(n)?'':n};
 const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',ORI_TR='Transportadora',T_GAR='Garantía / Reparación',T_ENV='Número de envío';
+/* Estado para colores y conteos: "DESPACHADO" solo es entregado en CAC/Almacén; en guías fuera de Bogotá significa en camino */
+const catX=x=>{const c=catEst(x.st);return c==='cac'&&x.o!==ORI_DR?'run':c};
 const kPed=v=>String(v==null?'':v).replace(/\s+/g,'').toUpperCase().replace(/\.0+$/,'');
 const dig5=v=>String(v==null?'':v).match(/\d{5,}/g)||[];
 const esPedV=v=>/^[A-Z]{1,3}-?\d{4,}$/.test(kPed(v));
@@ -1618,15 +1620,16 @@ async function rDes(){
   +'<div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
  const ta=$('#d-ped');ta.value=FQ.dPed||'';FQ.dVw=FQ.dVw||'c';
  let pasa=()=>true,L=[],NF=[],toks=[];
- const pill=s=>'<span class="pl2 '+catEst(s)+'">'+esc(s||'Sin estado')+'</span>';
+ const pill=x=>'<span class="pl2 '+catX(x)+'">'+esc(x.st||'Sin estado')+'</span>';
  const dias=n=>n&&n.dtra!==''&&n.dtra!=null?fnum(n.dtra,0)+(n.dofe!==''&&n.dofe!=null?' de '+fnum(n.dofe,0):'')+' días':'';
- const envio=x=>{const n=x.n||{},c=catEst(x.st);
-  const P=[['Recogida',n.rec||(x.n?'':x.f)],['Despacho',n.desp||(x.n?'':x.f)],['Entrega',n.ent||(c==='cac'?x.f:'')]];
-  const lv=c==='ok'||c==='cac'?3:P.filter(p=>p[1]).length||1;
+ const envio=x=>{const n=x.n||{},c=catX(x);
+  /* CAC/Almacén: despachado = entregado en Bogotá. Guía sin informe de la transportadora: solo se sabe la fecha de despacho */
+  const P=x.n?[['Recogida',n.rec],['Despacho',n.desp],['Entrega',n.ent]]:x.o===ORI_DR?[['Recogida',x.f],['Despacho',x.f],['Entrega',x.f]]:[['Recogida',''],['Despacho',x.f],['Entrega','']];
+  const lv=c==='ok'||c==='cac'?3:x.n?P.filter(p=>p[1]).length||1:2;
   return'<div class="de"><div><span class="lb">Guía</span><b class="mono">'+esc(x.g)+'</b><small>'+esc((x.rem?'Remisión '+x.rem+' · ':'')+x.o)+'</small></div>'
    +'<div><span class="lb">Destino</span><b>'+esc(n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'—'))+'</b><small title="'+esc(n.nom||x.c)+'">'+esc(n.nom||x.c)+'</small></div>'
    +'<div class="trk '+c+'">'+P.map((p,i)=>'<div class="st'+(i<lv?' on':'')+'"><i></i><span>'+p[0]+'</span><b>'+(p[1]?esc(fd(p[1])):'—')+'</b></div>').join('')+'</div>'
-   +'<div>'+pill(x.st)+'<small>'+esc([n.efi,dias(x.n)].filter(Boolean).join(' · '))+'</small></div>'
+   +'<div>'+pill(x)+'<small>'+esc([n.efi,dias(x.n)].filter(Boolean).join(' · '))+'</small></div>'
    +'<div class="dv"><span class="lb">Valor declarado</span><b>'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'—')+'</b><small>'+(x.u!==''&&x.u!=null?fnum(x.u,0)+(x.u===1?' unidad':' unidades'):'')+'</small></div>'
    +(n.nov?'<div class="dn"><b>Novedad:</b> '+esc(n.nov)+'</div>':'')+'</div>'};
  const pintar=()=>{
@@ -1634,8 +1637,8 @@ async function rDes(){
   const un=new Map();R.forEach(x=>{const z=x.g+'|'+x.rem+'|'+x.f;if(!un.has(z))un.set(z,x)});const U=[...un.values()];
   const set=(id,v)=>{$(id).textContent=v};
   set('#d-nb',fnum(toks.length,0));set('#d-ne',fnum(toks.length-NF.length,0));set('#d-nn',fnum(NF.length,0));set('#d-nd',fnum(U.length,0));
-  set('#d-ok',fnum(U.filter(x=>catEst(x.st)==='ok'||catEst(x.st)==='cac').length,0));set('#d-run',fnum(U.filter(x=>catEst(x.st)==='run').length,0));
-  set('#d-bad',fnum(U.filter(x=>catEst(x.st)==='bad'||(x.n&&x.n.nov)).length,0));
+  set('#d-ok',fnum(U.filter(x=>catX(x)==='ok'||catX(x)==='cac').length,0));set('#d-run',fnum(U.filter(x=>catX(x)==='run').length,0));
+  set('#d-bad',fnum(U.filter(x=>catX(x)==='bad'||(x.n&&x.n.nov)).length,0));
   set('#d-nu',fnum(U.reduce((t,x)=>t+(typeof x.u==='number'?x.u:0),0),0));set('#d-nv','$ '+fnum(U.reduce((t,x)=>t+(x.n&&typeof x.n.val==='number'?x.n.val:0),0),0));
   $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> '+esc(NF.join(', '))+' <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
   const cp=$('#d-cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NF.join('\n'));cp.textContent='Copiado'}catch(e){}};
@@ -1645,18 +1648,18 @@ async function rDes(){
   if(FQ.dVw==='t'){
    let t='<div class="tw"><table class="pv des"><thead><tr><th>Buscado</th><th>Tipo</th><th>Fecha de envío</th><th>Guía</th><th>Remisión</th><th>Destino</th><th>Recogida</th><th>Entrega</th><th>Estado</th><th>Eficiencia</th><th class="n">Días</th><th class="n">Unidades</th><th class="n">Valor declarado</th><th>Pedidos / garantías del envío</th><th>Origen</th></tr></thead><tbody>';
    peds.forEach(p=>R.filter(x=>x.ped===p).forEach((x,i,A)=>{const n=x.n||{};t+='<tr'+(i===0?' class="gp"':'')+'>'+(i===0?'<td rowspan="'+A.length+'"><b>'+esc(p)+'</b></td><td rowspan="'+A.length+'">'+esc(x.tipo)+'</td>':'')
-    +'<td>'+esc(fd(x.f))+'</td><td class="mono">'+esc(x.g)+'</td><td class="mono">'+esc(x.rem)+'</td><td>'+esc(n.dest||'')+'</td><td>'+esc(fd(n.rec||''))+'</td><td>'+esc(fd(n.ent||''))+'</td><td>'+pill(x.st)+'</td><td>'+esc(n.efi||'')+'</td><td class="n">'+esc(dias(x.n))+'</td>'
+    +'<td>'+esc(fd(x.f))+'</td><td class="mono">'+esc(x.g)+'</td><td class="mono">'+esc(x.rem)+'</td><td>'+esc(n.dest||'')+'</td><td>'+esc(fd(n.rec||''))+'</td><td>'+esc(fd(n.ent||''))+'</td><td>'+pill(x)+'</td><td>'+esc(n.efi||'')+'</td><td class="n">'+esc(dias(x.n))+'</td>'
     +'<td class="n">'+(x.u===''?'':fnum(x.u,0))+'</td><td class="n">'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'')+'</td><td class="wr">'+esc(x.c)+'</td><td>'+esc(x.o)+'</td></tr>'}));
    $('#d-t').innerHTML=t+'</tbody></table></div>';return}
-  $('#d-t').innerHTML='<div class="dgrid">'+peds.map(p=>{const A=R.filter(x=>x.ped===p),x0=A[0],c0=catEst(x0.st);
-   return'<article class="dc '+c0+'"><header><div class="dh"><b class="mono">'+esc(p)+'</b><span class="tp">'+esc(x0.tipo)+'</span></div><div class="dm"><span>'+A.length+(A.length===1?' envío':' envíos')+'</span><span>Último: <b>'+esc(fd(x0.f)||'—')+'</b></span>'+pill(x0.st)+'</div></header>'+A.map(envio).join('')+'</article>'}).join('')+'</div>';
+  $('#d-t').innerHTML='<div class="dgrid">'+peds.map(p=>{const A=R.filter(x=>x.ped===p),x0=A[0],c0=catX(x0);
+   return'<article class="dc '+c0+'"><header><div class="dh"><b class="mono">'+esc(p)+'</b><span class="tp">'+esc(x0.tipo)+'</span></div><div class="dm"><span>'+A.length+(A.length===1?' envío':' envíos')+'</span><span>Último: <b>'+esc(fd(x0.f)||'—')+'</b></span>'+pill(x0)+'</div></header>'+A.map(envio).join('')+'</article>'}).join('')+'</div>';
  };
  const consultar=()=>{
   FQ.dPed=ta.value;
   const vis=new Set();toks=ta.value.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x&&!vis.has(kPed(x))&&vis.add(kPed(x)));
   L=[];NF=[];
   for(const t of toks){const A=D.buscar(t);if(!A.length){NF.push(t);continue}
-   A.forEach(({e,tp})=>L.push({ped:t,tipo:tp,f:e.f,g:e.g,rem:e.rem||'',o:e.o,c:e.c||'',u:e.u==null?'':e.u,st:e.st||'',n:e.n,sit:SIT[catEst(e.st)],
+   A.forEach(({e,tp})=>L.push({ped:t,tipo:tp,f:e.f,g:e.g,rem:e.rem||'',o:e.o,c:e.c||'',u:e.u==null?'':e.u,st:e.st||'',n:e.n,sit:SIT[catX(e)],
     mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
   const defs=[{n:'Situación',f:x=>x.sit},{n:'Estado de la guía',f:x=>x.st},{n:'Eficiencia',f:x=>x.n&&x.n.efi||'(sin dato)'},{n:'Destino',f:x=>x.n&&x.n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'(sin dato)')},
    {n:'Con novedad',f:x=>x.n&&x.n.nov?'Sí':'No'},{n:'Origen',f:x=>x.o.replace(/ · col\. .*/,'')},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes}];
