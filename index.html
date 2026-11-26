@@ -1485,13 +1485,25 @@ const fDes=v=>{if(v instanceof Date)return dk(v);if(typeof v==='number'&&v>20000
 async function datosDes(){
  const [gu,dr]=await Promise.all([get('guias'),get('drive')]);
  const ex=new Map(),nu=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}a.push(e)};
- const meter=(v,e)=>{if(v==null||v==='')return;add(ex,kPed(v),e);dig5(v).forEach(d=>add(nu,d,e))};
+ /* El índice por número solo toma valores que no son pedidos (los pedidos tipo D170246 se buscan siempre exactos), así una garantía 170246 nunca trae el pedido D170246 */
+ const esPed=v=>/^[A-Z]{1,3}-?\d{4,}$/.test(kPed(v));
+ const meter=(v,e)=>{if(v==null||v==='')return;add(ex,kPed(v),e);if(!esPed(v))dig5(v).forEach(d=>add(nu,d,e))};
  if(gu){const c=gu.cab.map(x=>String(x));let iF=c.indexOf('Fecha despacho');if(iF<0)iF=c.findIndex(h=>/fecha.*desp/i.test(h));
   const cols=[28,29,...c.map((h,i)=>/pedido/i.test(h)&&i!==28&&i!==29?i:-1).filter(i=>i>=0)];
-  for(const r of gu.rows){const e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU};cols.forEach(i=>meter(r[i],e))}}
+  for(const r of gu.rows){const e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU};cols.forEach(i=>meter(r[i],e))}
+  gu._iF=iF}
  if(dr)for(const r of dr.rows)meter(r[1],{f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR});
- /* búsqueda: primero el valor exacto; si no aparece, el número (así 148054 encuentra "GAR-148054") */
- const buscar=t=>{const k=kPed(t);let a=ex.get(k);if(!a||!a.length){const d=dig5(t);a=d.length?[].concat(...d.map(x=>nu.get(x)||[])):[]}
+ /* Respaldo: si no aparece en las columnas de siempre, se busca en TODAS las columnas de los dos archivos (celda igual o que contenga el pedido)
+    y se indica la letra de la columna donde apareció */
+ const letra=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
+ const enTodo=t=>{const k=kPed(t),out=[];if(k.length<4)return out;
+  const pt=esPed(t),hit=v=>{if(v==null||v==='')return false;const c=kPed(v);if(c===k)return true;if(k.length<6||!c.includes(k))return false;return pt||!esPed(v)};
+  if(gu)for(const r of gu.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[gu._iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU+' · col. '+letra(i)});break}}
+  if(dr)for(const r of dr.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR+' · col. '+letra(i)});break}}
+  return out};
+ /* búsqueda: primero el valor exacto; si no aparece, el número (así 148054 encuentra "GAR-148054"); si tampoco, en todas las columnas */
+ const buscar=t=>{const k=kPed(t);let a=ex.get(k);if((!a||!a.length)&&!esPed(t)){const d=dig5(t);a=d.length?[].concat(...d.map(x=>nu.get(x)||[])):[]}
+  if(!a||!a.length)a=enTodo(t);
   const vis=new Set();return a.filter(e=>{const z=e.f+'|'+e.g+'|'+e.o;if(vis.has(z))return false;vis.add(z);return true}).sort((p,q)=>String(q.f).localeCompare(String(p.f)))};
  return{gu,dr,buscar};
 }
@@ -1527,7 +1539,7 @@ async function rDes(){
   const vis=new Set();toks=ta.value.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x&&!vis.has(kPed(x))&&vis.add(kPed(x)));
   L=[];NF=[];
   for(const t of toks){const A=D.buscar(t);if(!A.length){NF.push(t);continue}
-   const tipo=/^\d{6}$/.test(t)?T_GAR:'Pedido';A.forEach(e=>L.push({ped:t,tipo,f:e.f,g:e.g,o:e.o,mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
+   const tipo=/^\d{5,7}$/.test(kPed(t))?T_GAR:'Pedido';A.forEach(e=>L.push({ped:t,tipo,f:e.f,g:e.g,o:e.o,mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
   const defs=[{n:'Origen',f:x=>x.o},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes,porMes:true},{n:'Número de guía',f:x=>x.g}];
   pasa=filtros($('#d-b'),defs,L,pintar,'d');pintar();
  };
