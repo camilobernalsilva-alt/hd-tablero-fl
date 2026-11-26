@@ -1630,9 +1630,9 @@ async function rDes(){
  const dias=n=>n&&n.dtra!==''&&n.dtra!=null?fnum(n.dtra,0)+(n.dofe!==''&&n.dofe!=null?' de '+fnum(n.dofe,0):'')+' días':'';
  const envio=x=>{const n=x.n||{},c=catX(x);
   /* CAC/Almacén: despachado = entregado en Bogotá. Guía sin informe de la transportadora: solo se sabe la fecha de despacho */
-  /* Recogida J y Entrega M del informe de negocios; Despacho = columna AS del archivo de Guías */
-  const P=x.n?[['Recogida',n.rec],['Despacho',x.o===ORI_GU?x.f:n.desp],['Entrega',n.ent]]:x.o===ORI_DR?[['Recogida',x.f],['Despacho',x.f],['Entrega',x.f]]:[['Recogida',''],['Despacho',x.f],['Entrega','']];
-  const lv=c==='ok'||c==='cac'?3:x.n?P.filter(p=>p[1]).length||1:2;
+  /* Orden: Despacho (columna AS del archivo de Guías) → Recogida (J del informe de negocios) → Entrega (M del informe) */
+  const P=x.n?[['Despacho',x.o===ORI_GU?x.f:n.desp],['Recogida',n.rec],['Entrega',n.ent]]:x.o===ORI_DR?[['Despacho',x.f],['Recogida',x.f],['Entrega',x.f]]:[['Despacho',x.f],['Recogida',''],['Entrega','']];
+  const lv=c==='ok'||c==='cac'?3:x.n?P.filter(p=>p[1]).length||1:1;
   return'<div class="de"><div><span class="lb">Guía</span><b class="mono">'+esc(x.g)+'</b><small>'+esc((x.rem?'Remisión '+x.rem+' · ':'')+x.o)+'</small></div>'
    +'<div><span class="lb">Destino</span><b>'+esc(n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'—'))+'</b><small title="'+esc(n.nom||x.c)+'">'+esc(n.nom||x.c)+'</small></div>'
    +'<div class="trk '+c+'">'+P.map((p,i)=>'<div class="st'+(i<lv?' on':'')+'"><i></i><span>'+p[0]+'</span><b>'+(p[1]?esc(fd(p[1])):'—')+'</b></div>').join('')+'</div>'
@@ -1677,8 +1677,8 @@ async function rDes(){
  ta.onpaste=()=>setTimeout(consultar,0);
  el.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{FQ.dVw=b.dataset.vw;pintar()});
  consultar();
- $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Remisión','Destino','Destinatario','Fecha recogida','Fecha despacho','Fecha entrega','Estado de la guía','Situación','Eficiencia','Días transcurridos','Días ofrecidos','Novedad','Unidades','Valor declarado','Pedidos / garantías del envío','Origen'],
-  rows:L.filter(x=>pasa(x)).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,x.rem,n.dest||'',n.nom||'',fd(n.rec||''),fd(x.o===ORI_GU?x.f:(n.desp||'')),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
+ $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Remisión','Destino','Destinatario','Fecha despacho','Fecha recogida','Fecha entrega','Estado de la guía','Situación','Eficiencia','Días transcurridos','Días ofrecidos','Novedad','Unidades','Valor declarado','Pedidos / garantías del envío','Origen'],
+  rows:L.filter(x=>pasa(x)).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,x.rem,n.dest||'',n.nom||'',fd(x.o===ORI_GU?x.f:(n.desp||'')),fd(n.rec||''),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
   ...(NF.length?[{n:'No encontrados',cab:['Buscado'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
 }
 
