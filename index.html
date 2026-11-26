@@ -486,6 +486,8 @@ article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 .de .dv b{font-size:16px}
 .de .dn{grid-column:1/-1;font-size:12.5px;background:#FCE6CC;border-left:3px solid var(--or);padding:7px 12px}
 .de .dn b{display:inline;font-size:12.5px}
+.de .dn.ft{background:#F6E3E6;border-left-color:#971B2F}
+.ftt{display:inline-block;margin-left:6px;padding:3px 9px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;background:#971B2F;color:#fff;white-space:nowrap}
 .trk{display:flex}
 .trk .st{flex:1;position:relative;text-align:center;font-size:11px;color:var(--mut)}
 .trk .st i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 5px;background:#fff;border:2px solid var(--ln);position:relative;z-index:1}
@@ -1537,7 +1539,7 @@ async function rGar(){
 
 /* ===== Despachos (v47): seguimiento de envíos de varios pedidos, garantías o guías a la vez =====
    Fuentes (se cargan juntas en la tarjeta de Guías):
-   - Guías de despachos (fuera de Bogotá): pedido o garantía en AC/AD (y columnas con "pedido"), guía AU, estado AQ, unidades BF, fecha "Fecha despacho".
+   - Guías de despachos (fuera de Bogotá): pedido o garantía en AC/AD (y columnas con "pedido"), guía AU, estado AQ, unidades BF, fecha de despacho AS.
    - DRIVE CAC & ALMACEN (Bogotá): fecha columna A, pedido columna B; estado DESPACHADO.
    - Informe de negocios (transportadora): columna A ("Codigo remision") = guía AU del archivo de Guías, pedido o garantía en D ("Documento"), AV ("Observaciones") y Q si es pedido,
      destino H, recogida J, despacho L, entrega M, destinatario R, unidades W, valor declarado Z, estado AA, días AB/AC, novedad AD, eficiencia AE.
@@ -1563,7 +1565,9 @@ async function datosDes(){
  const meter=(v,e)=>{if(v==null||v==='')return;const t=String(v).toUpperCase();add(ex,kPed(v),e);(t.match(/D\d{5,}/g)||[]).forEach(d=>add(ex,d,e));
   if(!esPedV(v))dig5(t.replace(/D\d{5,}/g,' ')).forEach(d=>add(nu,d,e))};
  const guE=[],drE=[];
- if(gu){const c=gu.cab.map(x=>String(x));let iF=c.indexOf('Fecha despacho');if(iF<0)iF=c.findIndex(h=>/fecha.*desp/i.test(h));
+ if(gu){const c=gu.cab.map(x=>String(x));
+  /* fecha de despacho: siempre la columna AS del archivo de Guías */
+  const iF=44;
   const cols=[28,29,...c.map((h,i)=>/pedido/i.test(h)&&i!==28&&i!==29?i:-1).filter(i=>i>=0)];
   let iR=c.findIndex(h=>/^id\s*remisi[oó]n$/i.test(h.trim()));if(iR<0)iR=0;
   for(const r of gu.rows){
@@ -1578,6 +1582,8 @@ async function datosDes(){
    const v=k=>r[I[k]],kg=kPed(v('guia'));if(!kg)continue;
    const n={dest:nrm(v('dest')),tdest:nrm(v('tdest')),rec:fDes(v('rec')),desp:fDes(v('desp')),ent:fDes(v('ent')),nom:nrm(v('nom')),val:uniDe(v('val')),
     dofe:v('dofe')===''?'':num(v('dofe')),dtra:v('dtra')===''?'':num(v('dtra')),nov:nrm(v('nov')),efi:nrm(v('efi'))};
+   /* Fuera de Tiempo: días transcurridos (AC) mayores que los ofrecidos (AB) */
+   n.ft=n.dtra!==''&&n.dofe!==''&&n.dtra>n.dofe;n.efiT=n.efi;if(n.ft)n.efi='Fuera de Tiempo';
    const q=nrm(v('nit')),refs=[...new Set([nrm(v('doc')),nrm(v('obs')),...(esPedV(q)||/^\d{6}$/.test(q)?[q]:[])].filter(Boolean))];
    /* cruce: columna A del informe de negocios = guía AU del archivo de Guías */
    let E=gi.get(kg);
@@ -1610,7 +1616,7 @@ async function rDes(){
   +'<div class="chips dk"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>envíos</span>'
   +'<span><b id="d-ok">0</b>entregados</span><span class="o"><b id="d-run">0</b>en camino</span><span class="r"><b id="d-bad">0</b>con incidencia o novedad</span><span><b id="d-nu">0</b>unidades</span><span><b id="d-nv">$ 0</b>valor declarado</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><div class="est"><p>Pega pedidos (empiezan con D), garantías o reparaciones (solo números), números de guía o de remisión, uno por línea o separados por coma, punto y coma o espacio. Cada uno muestra todos sus envíos, del más reciente al más antiguo. Pedidos y garantías nunca se mezclan entre sí.</p><ul class="fts">'
-  +fte('Guías de despachos (fuera de Bogotá):',D.gu,D.gu?'pedido o garantía en AC/AD, guía AU, estado AQ, unidades BF; '+rng(D.gu.rows,r=>r[D.gu.cab.indexOf('Fecha despacho')]):'')
+  +fte('Guías de despachos (fuera de Bogotá):',D.gu,D.gu?'pedido o garantía en AC/AD, guía AU, fecha de despacho AS, estado AQ, unidades BF; '+rng(D.gu.rows,r=>r[44]):'')
   +fte('DRIVE CAC & ALMACEN (Bogotá):',D.dr,D.dr?'fecha A, pedido B, estado DESPACHADO; '+rng(D.dr.rows,r=>r[0]):'')
   +fte('Informe de negocios (transportadora):',D.ng,D.ng?'guía A (= AU de Guías), pedido o garantía en D, AV y Q, destino H, recogida J, entrega M, valor declarado Z, estado AA, eficiencia AE y novedad AD; '+rng(D.ng.rows,r=>r[4]):'')
   +'</ul><p>La guía es siempre la columna AU del archivo de Guías. El informe de negocios se cruza por la guía (su columna A con la columna AU de Guías) y completa ese envío con destino, fechas, valor y estado de la transportadora; si la guía no está en el archivo de Guías, el envío aparece igual con los datos de la transportadora. Si un pedido no aparece en las columnas de siempre, se busca en todas las columnas de Guías y DRIVE y en Origen se indica la letra. No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></div></details>'
@@ -1624,21 +1630,22 @@ async function rDes(){
  const dias=n=>n&&n.dtra!==''&&n.dtra!=null?fnum(n.dtra,0)+(n.dofe!==''&&n.dofe!=null?' de '+fnum(n.dofe,0):'')+' días':'';
  const envio=x=>{const n=x.n||{},c=catX(x);
   /* CAC/Almacén: despachado = entregado en Bogotá. Guía sin informe de la transportadora: solo se sabe la fecha de despacho */
-  const P=x.n?[['Recogida',n.rec],['Despacho',n.desp],['Entrega',n.ent]]:x.o===ORI_DR?[['Recogida',x.f],['Despacho',x.f],['Entrega',x.f]]:[['Recogida',''],['Despacho',x.f],['Entrega','']];
+  /* Recogida J y Entrega M del informe de negocios; Despacho = columna AS del archivo de Guías */
+  const P=x.n?[['Recogida',n.rec],['Despacho',x.o===ORI_GU?x.f:n.desp],['Entrega',n.ent]]:x.o===ORI_DR?[['Recogida',x.f],['Despacho',x.f],['Entrega',x.f]]:[['Recogida',''],['Despacho',x.f],['Entrega','']];
   const lv=c==='ok'||c==='cac'?3:x.n?P.filter(p=>p[1]).length||1:2;
   return'<div class="de"><div><span class="lb">Guía</span><b class="mono">'+esc(x.g)+'</b><small>'+esc((x.rem?'Remisión '+x.rem+' · ':'')+x.o)+'</small></div>'
    +'<div><span class="lb">Destino</span><b>'+esc(n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'—'))+'</b><small title="'+esc(n.nom||x.c)+'">'+esc(n.nom||x.c)+'</small></div>'
    +'<div class="trk '+c+'">'+P.map((p,i)=>'<div class="st'+(i<lv?' on':'')+'"><i></i><span>'+p[0]+'</span><b>'+(p[1]?esc(fd(p[1])):'—')+'</b></div>').join('')+'</div>'
-   +'<div>'+pill(x)+'<small>'+esc([n.efi,dias(x.n)].filter(Boolean).join(' · '))+'</small></div>'
+   +'<div>'+pill(x)+(n.ft?'<span class="ftt">Fuera de Tiempo</span>':'')+'<small>'+esc([n.ft?n.efiT:n.efi,dias(x.n)].filter(Boolean).join(' · '))+'</small></div>'
    +'<div class="dv"><span class="lb">Valor declarado</span><b>'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'—')+'</b><small>'+(x.u!==''&&x.u!=null?fnum(x.u,0)+(x.u===1?' unidad':' unidades'):'')+'</small></div>'
-   +(n.nov?'<div class="dn"><b>Novedad:</b> '+esc(n.nov)+'</div>':'')+'</div>'};
+   +(n.ft||n.nov?'<div class="dn'+(n.ft?' ft':'')+'">'+(n.ft?'<b>Fuera de Tiempo:</b> '+esc(fnum(n.dtra,0)+' días transcurridos de '+fnum(n.dofe,0)+' ofrecidos')+(n.nov?' · ':''):'')+(n.nov?'<b>Novedad:</b> '+esc(n.nov):(n.ft?' · Sin novedad reportada por la transportadora':''))+'</div>':'')+'</div>'};
  const pintar=()=>{
   const R=L.filter(x=>pasa(x)),peds=[...new Set(R.map(x=>x.ped))];
   const un=new Map();R.forEach(x=>{const z=x.g+'|'+x.rem+'|'+x.f;if(!un.has(z))un.set(z,x)});const U=[...un.values()];
   const set=(id,v)=>{$(id).textContent=v};
   set('#d-nb',fnum(toks.length,0));set('#d-ne',fnum(toks.length-NF.length,0));set('#d-nn',fnum(NF.length,0));set('#d-nd',fnum(U.length,0));
   set('#d-ok',fnum(U.filter(x=>catX(x)==='ok'||catX(x)==='cac').length,0));set('#d-run',fnum(U.filter(x=>catX(x)==='run').length,0));
-  set('#d-bad',fnum(U.filter(x=>catX(x)==='bad'||(x.n&&x.n.nov)).length,0));
+  set('#d-bad',fnum(U.filter(x=>catX(x)==='bad'||(x.n&&(x.n.nov||x.n.ft))).length,0));
   set('#d-nu',fnum(U.reduce((t,x)=>t+(typeof x.u==='number'?x.u:0),0),0));set('#d-nv','$ '+fnum(U.reduce((t,x)=>t+(x.n&&typeof x.n.val==='number'?x.n.val:0),0),0));
   $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> '+esc(NF.join(', '))+' <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
   const cp=$('#d-cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NF.join('\n'));cp.textContent='Copiado'}catch(e){}};
@@ -1671,7 +1678,7 @@ async function rDes(){
  el.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{FQ.dVw=b.dataset.vw;pintar()});
  consultar();
  $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Remisión','Destino','Destinatario','Fecha recogida','Fecha despacho','Fecha entrega','Estado de la guía','Situación','Eficiencia','Días transcurridos','Días ofrecidos','Novedad','Unidades','Valor declarado','Pedidos / garantías del envío','Origen'],
-  rows:L.filter(x=>pasa(x)).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,x.rem,n.dest||'',n.nom||'',fd(n.rec||''),fd(n.desp||''),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
+  rows:L.filter(x=>pasa(x)).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,x.rem,n.dest||'',n.nom||'',fd(n.rec||''),fd(x.o===ORI_GU?x.f:(n.desp||'')),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
   ...(NF.length?[{n:'No encontrados',cab:['Buscado'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
 }
 
