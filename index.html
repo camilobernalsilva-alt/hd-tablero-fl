@@ -1651,7 +1651,7 @@ async function rDes(){
   const lv=c==='ok'||c==='cac'?3:x.n?P.filter(p=>p[1]).length||1:1;
   return'<div class="de"><div><span class="lb">Guía</span><b class="mono">'+esc(x.g)+'</b><small>'+esc((x.rem?'Remisión '+x.rem+' · ':'')+x.o)+'</small></div>'
    +'<div><span class="lb">Destino</span><b>'+esc(n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'—'))+'</b><small title="'+esc(n.nom||x.c)+'">'+esc(n.nom||x.c)+'</small></div>'
-   +'<div class="trk '+c+'">'+P.map((p,i)=>'<div class="st'+(i<lv?' on':'')+'"><i></i><span>'+p[0]+'</span><b>'+(p[1]?esc(fd(p[1])):'—')+'</b></div>').join('')+'</div>'
+   +'<div class="trk '+c+'">'+P.map((p,i)=>'<div class="st'+(lv===3||p[1]?' on':'')+'"><i></i><span>'+p[0]+'</span><b>'+(p[1]?esc(fd(p[1])):'—')+'</b></div>').join('')+'</div>'
    +'<div>'+pill(x)+(n.ft?'<span class="ftt">Fuera de Tiempo</span>':'')+'<small>'+esc([n.ft?n.efiT:n.efi,dias(x.n)].filter(Boolean).join(' · '))+'</small></div>'
    +'<div class="dv"><span class="lb">Valor declarado</span><b>'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'—')+'</b><small>'+(x.u!==''&&x.u!=null?fnum(x.u,0)+(x.u===1?' unidad':' unidades'):'')+'</small></div>'
    +(n.ft||n.nov?'<div class="dn'+(n.ft?' ft':'')+'">'+(n.ft?'<b>Fuera de Tiempo:</b> '+esc(fnum(n.dtra,0)+' días transcurridos de '+fnum(n.dofe,0)+' ofrecidos')+(n.nov?' · ':''):'')+(n.nov?'<b>Novedad:</b> '+esc(n.nov):(n.ft?' · Sin novedad reportada por la transportadora':''))+'</div>':'')+'</div>'};
