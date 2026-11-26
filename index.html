@@ -966,12 +966,12 @@ async function rFaltantes(){
     Las columnas de ítem, OP, código, descripción, cantidad, fecha, área y observaciones se buscan por el nombre del encabezado. */
  const accDe=(A,refA)=>{
   if(!A||!A.rows)return[];
-  const H=A.cab.map(x=>String(x)),f=rx=>H.findIndex((h,i)=>i!==5&&rx.test(h)),v=(r,i)=>i<0||r[i]==null?'':r[i];
+  const H=A.cab.map(x=>String(x)),f=rx=>H.findIndex((h,i)=>i!==5&&i!==15&&rx.test(h)),v=(r,i)=>i<0||r[i]==null?'':r[i];
   const iI=f(/^#?\s*[ií]tem/i),iO=f(/^(#\s*)?op(\s*id)?$|orden de producci/i),iC=f(/^(cod|c[oó]digo)(?!.*colou?r)/i),iL=f(/c[oó]d.*colou?r/i),iCo=f(/^colou?r$/i),
-   iD=f(/descrip|accesorio|art[ií]culo|componente|nombre|referencia/i),iN=f(/cant|consumo/i),iF=f(/fecha/i),iB=f(/observ/i),iA=f(/^[áa]rea$/i),iT=f(/tama/i);
+   iD=f(/descrip|accesorio|art[ií]culo|componente|nombre|referencia/i),iN=f(/cant|consumo/i),iF=f(/fecha/i),iB=f(/observ/i),iT=f(/tama/i);
   return A.rows.map(r=>{const fv=v(r,iF);
    return{ped:String(r[5]).trim(),it:String(v(r,iI)).trim(),op:String(v(r,iO)).trim(),cod:String(v(r,iC)).trim(),cl:String(v(r,iL)).trim(),col:String(v(r,iCo)).trim(),desc:String(v(r,iD)).trim(),
-    con:num(v(r,iN)),fl:fv instanceof Date?dk(fv):esHoy(fv)?refA:String(fv).trim(),obs:String(v(r,iB)).trim(),area:String(v(r,iA)).trim(),tam:String(v(r,iT)).trim()}});
+    con:num(v(r,iN)),fl:fv instanceof Date?dk(fv):esHoy(fv)?refA:String(fv).trim(),obs:String(v(r,iB)).trim(),area:String(r[15] instanceof Date?fd(dk(r[15])):r[15]==null?'':r[15]).trim()   /* Área: columna P de la hoja Accesorios */,tam:String(v(r,iT)).trim()}});
  };
  const AC=accDe(c.acc,refC),APm=new Map(),kAc=y=>y.ped+'|'+y.it+'|'+y.cod+'|'+y.desc;
  if(p&&p.acc)accDe(p.acc,refP).forEach(y=>APm.set(kAc(y),y.fl));
