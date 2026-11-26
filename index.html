@@ -456,6 +456,11 @@ details.pw summary{cursor:pointer;color:var(--ac);font-weight:700}
 .editbar{background:var(--o20);padding:12px 14px;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:10px 0}
 .editbar>div:first-child{display:flex;flex-direction:column;gap:2px}
 .tmp{display:block;font:700 18px/26px monospace;margin-top:6px}
+/* v45: botón gris para quitar todos los filtros; permisos por persona en Administración */
+.btn.qf{background:var(--mut);color:#fff;border:0;white-space:nowrap}
+.btn.qf:hover{background:var(--ink);color:#fff}
+.prm{display:flex;flex-direction:column;gap:2px;font-size:13px;white-space:nowrap}
+.prm .chk{display:flex;align-items:center;gap:6px}
 </style>
 </head>
 <body>
@@ -527,7 +532,8 @@ const BASES=[
  {id:'cartera',n:'Seguimiento de cartera',h:['Pedido de ventas','Importe en Pesos'],t:'Reemplaza la carga anterior.'},
  {id:'guias',n:'Guías despachos',h:['Id remision','Fecha despacho'],t:'Acepta .xls y .xlsx.'},
  {id:'master',n:'BD-Master (columnas A a K)',h:['Cuenta de cliente','Empresa'],t:'Se actualiza cada 15 días.'},
- {id:'inventario',n:'Inventarios (saldo)',h:['ITEMID','AVAILPHYSICAL','INVENTLOCATIONID'],t:'Solo negocio WF y bodegas HDC050, HDC005 y HDC026A. Cada día se suma al historial de 90 días.'}
+ {id:'inventario',n:'Inventarios (saldo)',h:['ITEMID','AVAILPHYSICAL','INVENTLOCATIONID'],t:'Solo negocio WF y bodegas HDC050, HDC005 y HDC026A. Cada día se suma al historial de 90 días.'},
+ {id:'equiv',n:'Equivalencias de telas',h:[],t:'Libro EQUIVALENCIAS_HD-FL-SC_OFICIAL (una hoja por línea). Cárgalo solo cuando se actualice o se agregue una tela: se suma a las equivalencias que ya tiene el tablero y se cruza con Inventarios.'}
 ];
 const $=s=>document.querySelector(s);
 const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -547,6 +553,7 @@ const put=(k,v)=>putRaw(k,v).then(r=>{if(onPut)onPut(k,v);return r});
 async function leer(file,b){
  const buf=await file.arrayBuffer();
  const wb=XLSX.read(buf,{type:'array',cellDates:true,dense:true});
+ if(b.id==='equiv')return equivLeer(wb);
  const nom=b.sheet&&wb.SheetNames.includes(b.sheet)?b.sheet:wb.SheetNames[0];
  const filas=XLSX.utils.sheet_to_json(wb.Sheets[nom],{header:1,raw:true,defval:'',blankrows:false});
  const hi=filas.slice(0,12).findIndex(r=>b.h.every(h=>r.some(x=>String(x).trim()===h)));
@@ -557,14 +564,59 @@ async function leer(file,b){
   const hj=fe.slice(0,6).findIndex(r=>r.some(x=>String(x).trim()==='Orden AX'));
   if(hj>=0)res.ettes={cab:fe[hj].map(x=>String(x)),rows:fe.slice(hj+1)};
  }
+ /* Hoja Accesorios del archivo de Faltantes: el número de pedido está en la columna F y se cruza con Pending */
+ const ha=b.id==='faltantes'&&wb.SheetNames.find(n=>/accesor/i.test(n));
+ if(ha){
+  const fa=XLSX.utils.sheet_to_json(wb.Sheets[ha],{header:1,raw:true,defval:'',blankrows:false});
+  let hk=fa.slice(0,10).findIndex(r=>r.filter(x=>typeof x==='string'&&x.trim()&&!/^\d+$/.test(x.trim())).length>=3);
+  if(hk<0)hk=0;
+  res.acc={hoja:ha,cab:(fa[hk]||[]).map(x=>String(x).trim()),rows:fa.slice(hk+1).filter(r=>String(r[5]==null?'':r[5]).trim()!=='')};
+ }
  return res;
+}
+/* Libro de equivalencias de telas: una hoja por línea. En cada hoja se busca la fila de encabezados
+   (código del color, colección y color de cada marca, estado). La marca sale del encabezado o de la fila de arriba. */
+function equivLeer(wb){
+ const T=v=>String(v==null?'':v).replace(/\s+/g,' ').trim(),out=[],hojas=[],vistos=new Set();
+ for(const nom of wb.SheetNames){
+  const F=XLSX.utils.sheet_to_json(wb.Sheets[nom],{header:1,raw:false,defval:'',blankrows:false});
+  const hi=F.slice(0,15).findIndex(r=>r.some(x=>/c[oó]d/i.test(T(x)))&&r.some(x=>/colecci|estado|color/i.test(T(x))&&!/c[oó]d/i.test(T(x))));
+  if(hi<0){hojas.push({n:nom,ok:false,m:'no encontré los encabezados'});continue}
+  const H=F[hi].map(T),A=hi>0?F[hi-1].map(T):[];
+  const marca=i=>{const t=H[i];if(/flex|\bfl\b/i.test(t))return'fl';if(/hunter|\bhd\b/i.test(t))return'hd';for(let j=i;j>=0;j--){const a=A[j]||'';if(a){if(/flex|\bfl\b/i.test(a))return'fl';if(/hunter|\bhd\b/i.test(a))return'hd';break}}return''};
+  const cods=H.map((t,i)=>/c[oó]d/i.test(t)?i:-1).filter(i=>i>=0);
+  const ic=cods.find(i=>/color|tela/i.test(H[i]))??cods[0];
+  const par=rx=>{const L=H.map((t,i)=>rx.test(t)&&i!==ic&&!/c[oó]d/i.test(t)?i:-1).filter(i=>i>=0);
+   let hd=L.find(i=>marca(i)==='hd'),fl=L.find(i=>marca(i)==='fl');
+   if(hd==null)hd=L.find(i=>i!==fl&&marca(i)!=='fl');if(fl==null)fl=L.find(i=>i!==hd&&marca(i)!=='hd');return[hd,fl]};
+  const [cH,cF]=par(/colecci/i),[kH,kF]=par(/color/i),ie=H.findIndex(t=>/estado|status/i.test(t));
+  const lin=linFam(nom)||T(nom),g=(r,i)=>i==null||i<0?'':T(r[i]);
+  let n=0;
+  for(const r of F.slice(hi+1)){
+   const k=g(r,ic).toUpperCase();if(!k||/\s/.test(k)&&k.length>12)continue;
+   const e=[lin,g(r,cH),g(r,kH),g(r,cF),g(r,kF),g(r,ie)||'Sin estado'];
+   if(!e[1]&&!e[2]&&!e[3]&&!e[4])continue;
+   out.push([k,...e]);n++;vistos.add(k);
+  }
+  hojas.push({n:nom,ok:n>0,f:n,lin,m:n?'':'sin filas con código'});
+ }
+ if(!out.length)throw new Error('No encontré equivalencias en el libro. Revisa que cada hoja tenga las columnas de código, colección, color y estado.');
+ return{cab:['Código','Línea','Colección Hunter Douglas','Color Hunter Douglas','Colección Flexalum','Color Flexalum','Estado'],rows:out,hojas,codigos:vistos.size};
+}
+/* Las equivalencias cargadas se suman a las del servidor: un código nuevo se agrega y uno que ya estaba se actualiza en su línea */
+async function aplicarEquiv(){
+ let q=null;try{q=await get('equiv')}catch(e){}
+ if(!q||!q.rows)return;
+ for(const r of q.rows){const k=r[0],e=r.slice(1,7),L=EQUIV[k]||(EQUIV[k]=[]),i=L.findIndex(a=>a[0]===e[0]);if(i>=0)L[i]=e;else L.push(e)}
 }
 function post(b,cab,rows){
  const ix=n=>cab.indexOf(n);
  if(b.id==='inventario')return invPost(cab,rows);
  if(b.id==='faltantes'){
-  const k=ix('Observaciones'),n=k>=0?k+1:18,p=ix('# Pedido');
-  return{cab:cab.slice(0,n),rows:rows.filter(r=>String(r[p]).trim()!=='').map(r=>r.slice(0,n))};
+  const k=ix('Observaciones'),n=k>=0?k+1:18,p=ix('# Pedido'),ia=cab.findIndex(x=>/^[áa]rea$/i.test(x));
+  /* La columna Área se conserva aunque esté después de Observaciones */
+  const ex=ia>=n?[ia]:[];
+  return{cab:cab.slice(0,n).concat(ex.map(i=>cab[i])),rows:rows.filter(r=>String(r[p]).trim()!=='').map(r=>r.slice(0,n).concat(ex.map(i=>r[i])))};
  }
  if(b.id==='pending'){
   const p=ix('Pedido'),t=ix('item'),d=ix('Dias Pedido');
@@ -601,13 +653,17 @@ async function cargar(i){
  try{
   await new Promise(r=>setTimeout(r,30));
   const d=await leer(f,b);
-  const rec={cab:d.cab,rows:d.rows,ettes:d.ettes,n:d.rows.length,archivo:f.name,por:AU.name||'',cargado:new Date().toISOString(),dia:d.dia||new Date().toLocaleDateString('en-CA')};
+  const rec={cab:d.cab,rows:d.rows,ettes:d.ettes,acc:d.acc,hojas:d.hojas,n:d.rows.length,archivo:f.name,por:AU.name||'',cargado:new Date().toISOString(),dia:d.dia||new Date().toLocaleDateString('en-CA')};
   if(b.id==='faltantes'){
    if(prev)await put('faltantes_prev',rec);
    else{const c=await get('faltantes');if(c&&c.dia!==rec.dia)await put('faltantes_prev',c);await put('faltantes',rec)}
   }else if(b.id==='inventario')await guardarInv(rec);else await put(b.id,rec);
+  if(b.id==='equiv')await aplicarEquiv();
   await rCarga();
-  const m=$('#c-'+b.id+' .msg');m.className='msg ok';m.textContent='Listo: '+rec.n.toLocaleString('es-CO')+' filas cargadas.';
+  const m=$('#c-'+b.id+' .msg');m.className='msg ok';
+  if(b.id==='equiv'){const ok=rec.hojas.filter(h=>h.ok),no=rec.hojas.filter(h=>!h.ok);
+   m.innerHTML='Listo: '+d.codigos.toLocaleString('es-CO')+' códigos de tela en '+ok.length+(ok.length===1?' hoja':' hojas')+' ('+ok.map(h=>esc(h.n)+': '+h.f).join(' · ')+').'+(no.length?'<br>Hojas sin leer: '+no.map(h=>esc(h.n)+' ('+h.m+')').join(' · ')+'.':'')}
+  else m.textContent='Listo: '+rec.n.toLocaleString('es-CO')+' filas cargadas.'+(b.id==='faltantes'&&!prev?(rec.acc?' Hoja '+rec.acc.hoja+': '+rec.acc.rows.length+' filas.':' El archivo no trae hoja de Accesorios.'):'');
  }catch(e){msg.className='msg err';msg.textContent=e.message||String(e)}
  finally{i.value=''}
 }
@@ -615,6 +671,14 @@ async function cargar(i){
 /* Segunda línea: igual que en Análisis Pending, cada fila se abre con ⊞ y muestra los campos de los filtros; el botón de arriba abre o cierra todas */
 let SEGA=false;
 const segBtn='<button type="button" class="btn sec sgb">Abrir todas las filas</button>';
+/* Botón gris "Quitar filtros": limpia los filtros, la búsqueda y el filtro avanzado de la consulta y la vuelve a pintar */
+const qfBtn=k=>'<button type="button" class="btn qf" data-qf="'+k+'" title="Quitar todos los filtros y la búsqueda">✕ Quitar filtros</button>';
+document.addEventListener('click',e=>{
+ const b=e.target.closest&&e.target.closest('[data-qf]');if(!b)return;
+ const k=b.dataset.qf;FS[k]={};FQ[k]='';
+ if(k==='g')delete FQ.gAdv;if(k==='i')delete FQ.iAdv;
+ try{V[TAB][1]()}catch(er){console.error(er)}
+});
 const segFila=(n,pares,cls)=>{const v=pares.filter(p=>p[1]!==''&&p[1]!=null);return v.length?'<tr class="seg det '+(cls||'')+'"'+(SEGA?'':' hidden')+'><td class="sg" colspan="'+n+'"><div>'+v.map(p=>'<span><i>'+esc(p[0])+'</i> '+esc(p[1])+'</span>').join('')+'</div></td></tr>':''};
 const segTg=sr=>sr?'<button type="button" class="tg" data-sg="1" aria-expanded="'+SEGA+'" aria-label="Ver los demás campos de la fila">'+(SEGA?'⊟':'⊞')+'</button> ':'';
 document.addEventListener('click',e=>{
@@ -875,15 +939,16 @@ async function rFaltantes(){
   const ix=n=>pe.cab.indexOf(n);
   for(const r of pe.rows){
    const ped=String(r[ix('Pedido')]).trim(),kk=ped+'-'+r[ix('item')],v=num(r[ix('Venta')]),op=String(r[ix('ProdId')]).trim();
-   if(!pa.has(ped))pa.set(ped,{cod:r[4],ag:r[ix('Agente')],ge:zon.get(String(r[ix('Zona')]).trim())||'Otros'});
+   if(!pa.has(ped))pa.set(ped,{cod:r[4],ag:r[ix('Agente')],ge:zon.get(String(r[ix('Zona')]).trim())||'Otros',dist:r[ix('Razosocial')],it:[]});
+   pa.get(ped).it.push(kk);
    if(op&&!pv.has(op))pv.set(op,v);
    const ea=est.get(String(r[ix('Estado')]).trim())||'Sin estado';if(op&&!pea.has(op))pea.set(op,ea);if(ea==='Faltante')pf.push({ped,it:r[ix('item')],op,v,es:String(r[ix('Estado')]).trim()});
-   if(!pk.has(kk))pk.set(kk,{df:r[ix('DFamiliaFinanciera')],fa:r[ix('DCanalFinanciera')],di:num(r[ix('Dias Pedido')]),ma:r[ix('Marca')],v});
+   if(!pk.has(kk))pk.set(kk,{df:r[ix('DFamiliaFinanciera')],fa:r[ix('DCanalFinanciera')],di:num(r[ix('Dias Pedido')]),ma:r[ix('Marca')],v,ea,sub:r[ix('SubEstado')],op});
   }
  }
  const ifp=p?p.cab.indexOf('Fecha de Llegada'):-1,eP=k=>{const q=mpi.get(k);return !!q&&ifp>=0&&String(q[ifp]).trim().toUpperCase()==='ETTES'},hP=k=>{const q=mpi.get(k);return !!q&&ifp>=0&&esHoy(q[ifp])};
  const eT=(e,v,h)=>e?'ETTES · '+(v===SIN_FECHA?SIN_FECHA:fd(v)):fd(v);
- const mk=K.map(ci),seen=new Set(),g=n=>ci(n);
+ const mk=K.map(ci),seen=new Set(),g=n=>ci(n),iAr=c.cab.findIndex(x=>/^[áa]rea$/i.test(String(x).trim()));
  const L0=c.rows.map(r=>{
   const k=key(r,mk);seen.add(k);
   const fl=rc(r),fa=mp.get(k);
@@ -892,9 +957,35 @@ async function rFaltantes(){
    resp:isE?(fl===SIN_FECHA?SIN_FECHA:fd(fl)):txt(r[g('Responsable')]),obs:isE?(fl===SIN_FECHA?SIN_FECHA:fd(fl))+(p&&fa!==undefined&&fa!==fl?' (antes '+(fa===SIN_FECHA?SIN_FECHA:fd(fa))+')':''):txt(r[g('Observaciones')]),ett:isE,fl,fa:fa===undefined?'':fa,flt:eT(isE,fl,isH),fat:fa===undefined?'':eT(eP(k),fa,hP(k)),
    est:!p?'Sin comparar':fa===undefined?'Nuevo':fa===fl?'Igual':'Cambió',
    cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',
+   ea:q.ea||'No',sub:q.sub||'No',area:iAr>=0?txt(String(r[iAr]==null?'':r[iAr])):'',ori:'Base',
    val:pv.has(op)?pv.get(op):(q.v||0),vk:op||ped+'-'+r[g('# Item')],
    mat:isE?'ETTES · '+(fl===SIN_FECHA?SIN_FECHA:fd(fl)):(/^\d{4}-\d\d-\d\d$/.test(fl)?fd(fl):(fl?String(fl):'Sin fecha'))};
  }).sort((x,y)=>x.pedido.localeCompare(y.pedido)||num(x.item)-num(y.item));
+ /* Hoja Accesorios: el pedido está en la columna F; distribuidor, agente, Comercial-Zona, marca, familias, días y valor salen de Pending.
+    Las columnas de ítem, OP, código, descripción, cantidad, fecha, área y observaciones se buscan por el nombre del encabezado. */
+ const accDe=(A,refA)=>{
+  if(!A||!A.rows)return[];
+  const H=A.cab.map(x=>String(x)),f=rx=>H.findIndex((h,i)=>i!==5&&rx.test(h)),v=(r,i)=>i<0||r[i]==null?'':r[i];
+  const iI=f(/^#?\s*[ií]tem/i),iO=f(/^(#\s*)?op(\s*id)?$|orden de producci/i),iC=f(/^(cod|c[oó]digo)(?!.*colou?r)/i),iL=f(/c[oó]d.*colou?r/i),iCo=f(/^colou?r$/i),
+   iD=f(/descrip|accesorio|art[ií]culo|componente|nombre|referencia/i),iN=f(/cant|consumo/i),iF=f(/fecha/i),iB=f(/observ/i),iA=f(/^[áa]rea$/i),iT=f(/tama/i);
+  return A.rows.map(r=>{const fv=v(r,iF);
+   return{ped:String(r[5]).trim(),it:String(v(r,iI)).trim(),op:String(v(r,iO)).trim(),cod:String(v(r,iC)).trim(),cl:String(v(r,iL)).trim(),col:String(v(r,iCo)).trim(),desc:String(v(r,iD)).trim(),
+    con:num(v(r,iN)),fl:fv instanceof Date?dk(fv):esHoy(fv)?refA:String(fv).trim(),obs:String(v(r,iB)).trim(),area:String(v(r,iA)).trim(),tam:String(v(r,iT)).trim()}});
+ };
+ const AC=accDe(c.acc,refC),APm=new Map(),kAc=y=>y.ped+'|'+y.it+'|'+y.cod+'|'+y.desc;
+ if(p&&p.acc)accDe(p.acc,refP).forEach(y=>APm.set(kAc(y),y.fl));
+ const yaBase=new Set(L0.map(x=>x.pedido+'|'+String(x.item)+'|'+x.cc));
+ for(const y of AC){
+  if(y.it&&y.cod&&yaBase.has(y.ped+'|'+y.it+'|'+y.cod))continue;   /* ya viene en la hoja Base */
+  const a=pa.get(y.ped)||{},q=pk.get(y.it?y.ped+'-'+y.it:((a.it||[])[0]||''))||{},op=y.op||(y.it?q.op||'':''),fa=p&&p.acc?APm.get(kAc(y)):undefined,fl=y.fl;
+  L0.push({pedido:y.ped,item:y.it,op,art:[y.desc,y.cod,y.cl,y.col].filter(Boolean).join('-')||'Accesorio',cc:y.cod,tam:y.tam,cl:y.cl,comp:y.desc,con:y.con,dist:a.dist||(pe?'No está en Pending':''),
+   resp:'',obs:y.obs,ett:false,fl,fa:fa===undefined?'':fa,flt:fd(fl),fat:fa===undefined?'':fd(fa),
+   est:!(p&&p.acc)?'Sin comparar':fa===undefined?'Nuevo':fa===fl?'Igual':'Cambió',
+   cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',ea:q.ea||'No',sub:q.sub||'No',area:y.area,ori:'Accesorios',
+   val:op&&pv.has(op)?pv.get(op):(y.it?q.v||0:0),vk:op||y.ped+'-'+(y.it||'acc')+'-'+(y.cod||y.desc),
+   mat:/^\d{4}-\d\d-\d\d$/.test(fl)?fd(fl):(fl||'Sin fecha')});
+ }
+ if(AC.length)L0.sort((x,y)=>x.pedido.localeCompare(y.pedido)||num(x.item)-num(y.item));
  /* Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera) */
  const fueraOP=x=>pe&&x.op&&pea.has(x.op)&&pea.get(x.op)!=='Faltante';
  const OUT=L0.filter(fueraOP),L=L0.filter(x=>!fueraOP(x));
@@ -943,13 +1034,17 @@ async function rFaltantes(){
   +(p?'<span class="r"><b id="f-nc"></b>cambiaron de fecha</span><span class="r"><b id="f-ne"></b>ETTES cambiaron</span><span class="a"><b id="f-nn"></b>nuevos</span><span><b>'+SL.length+'</b>salieron'+(pe?' · $ '+Math.round(SLV).toLocaleString('es-CO'):'')+'</span>':'')
   +'</div><details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">'+'Archivo de hoy: '+esc(c.archivo)+' (cargado el '+esc(new Date(c.cargado).toLocaleString('es-CO'))+'). '+(p?'Comparado contra '+esc(p.archivo)+'. “HOY” se toma como la fecha del reporte ('+fd(refC)+'). ':'No hay carga anterior. En la pestaña Carga puedes subir una con “Cargar como día anterior”. ')
   +'El valor sale de Pending, cruzando por OP, y se cuenta una sola vez por OP aunque le falten varios componentes (en la grilla, las filas repetidas dicen “misma OP”). Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera), para cuadrar con Análisis Pending; quedan en el cuadre y en la hoja “Excluidos” al exportar. En los faltantes ETTES, la fecha de llegada de la hoja ETTES se copia también en Responsable y Observaciones (“'+SIN_FECHA+'” si no tiene).'+(c.ettes?'':' Este archivo se cargó sin la hoja ETTES: vuelve a cargarlo en la pestaña Carga.')+(pe?'':' Carga Pending para ver agente, zona, días, marca, familias y valor.')+'</p></details>'+slHtml
-  +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre o artículo" aria-label="Buscar">'+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-t"></div>';
- const defs=[{n:'Marca',f:x=>x.mar},{n:'Tipo de cortina',f:x=>x.df},{n:'Familia Financiera',f:x=>x.fam},{n:'Agente',f:x=>x.ag},{n:'Gerente de Distrito',f:x=>x.ge},{n:'Distribuidor',f:x=>x.dist},
-  {n:'Artículo',f:x=>x.art},{n:'Tamaño',f:x=>x.tam},{n:'Días',f:x=>x.dias,num:true,asc:true},defMat(),{n:'Estado',f:x=>x.est},{n:'Responsable',f:x=>x.resp}];
+  +(AC.length?'<p class="est">Incluye '+AC.length+(AC.length===1?' fila':' filas')+' de la hoja '+esc(c.acc.hoja)+' (pedido en la columna F, cruzado con Pending).</p>':'')
+  +(iAr<0?'<p class="est">Este archivo de Faltantes se cargó sin la columna Área: vuelve a cargarlo en la pestaña Carga para verla.</p>':'')
+  +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre, agente o artículo" aria-label="Buscar">'+qfBtn('f')+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-t"></div>';
+ const defs=[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.fam},{n:'Agente',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
+  {n:'Tipo de cortina',f:x=>x.df},{n:'Comercial-Zona',f:x=>x.ge},{n:'Distribuidor',f:x=>x.dist},
+  {n:'Artículo',f:x=>x.art},{n:'Tamaño',f:x=>x.tam},{n:'Días',f:x=>x.dias,num:true,asc:true},defMat(),{n:'Estado',f:x=>x.est},{n:'Área',f:x=>x.area||'(sin área)'},{n:'Responsable',f:x=>x.resp},
+  ...(AC.length?[{n:'Origen',f:x=>x.ori}]:[])];
  let pasa=()=>true,ult=[];
  const pintar=()=>{
   const q=$('#f-q').value.toLowerCase();
-  const R=L.filter(x=>pasa(x)&&(!q||(x.pedido+' '+x.dist+' '+x.art+' '+x.op+' '+x.cod+' '+x.cc+' '+x.cl+' '+x.tam).toLowerCase().includes(q)));
+  const R=L.filter(x=>pasa(x)&&(!q||(x.pedido+' '+x.dist+' '+x.art+' '+x.op+' '+x.cod+' '+x.cc+' '+x.cl+' '+x.tam+' '+x.ag).toLowerCase().includes(q)));
   const TV=unaVez(R);ult=R;
   $('#f-np').textContent=new Set(R.map(x=>x.pedido)).size.toLocaleString('es-CO');
   $('#f-nf').textContent=R.length.toLocaleString('es-CO');
@@ -960,19 +1055,20 @@ async function rFaltantes(){
   if(!R.length){$('#f-t').innerHTML=vacio('Ningún faltante coincide con los filtros.');return}
   const GP=new Map();for(const x of R){let a=GP.get(x.pedido);if(!a){a=[];GP.set(x.pedido,a)}a.push(x)}
   const GR=[...GP.values()].map(a=>({a,v:a.reduce((t,y)=>t+(y.uno?y.val:0),0),k:a.reduce((t,y)=>t+y.con,0),st:a.some(y=>y.est==='Cambió')?'rojo':a.some(y=>y.est==='Nuevo')?'nuevo':''})).sort((u,w)=>w.v-u.v||u.a[0].pedido.localeCompare(w.a[0].pedido));
-  $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
-   +'<tr class="tot"><td colspan="3">Total general · '+GR.length.toLocaleString('es-CO')+(GR.length===1?' pedido':' pedidos')+'</td><td class="n">'+R.length.toLocaleString('es-CO')+'</td><td class="n">'+fk(TK)+'</td><td class="n">'+$m(TV)+'</td></tr>'
+  $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th>Agente</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
+   +'<tr class="tot"><td colspan="4">Total general · '+GR.length.toLocaleString('es-CO')+(GR.length===1?' pedido':' pedidos')+'</td><td class="n">'+R.length.toLocaleString('es-CO')+'</td><td class="n">'+fk(TK)+'</td><td class="n">'+$m(TV)+'</td></tr>'
    +GR.map(g=>{const x=g.a[0];
-    const sr='<tr class="seg det '+g.st+'"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="6"><table class="pnd2 fl"><thead><tr><th>Ítem</th><th>OP</th><th>Artículo</th><th>COD</th><th>Cod. Color</th><th>Tamaño</th><th>Fecha de llegada</th><th>Fecha ayer</th><th>Observaciones</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
-     +g.a.map(y=>'<tr class="'+(y.est==='Cambió'?'rojo':y.est==='Nuevo'?'nuevo':'')+'"><td class="n">'+esc(y.item)+'</td><td>'+esc(y.op)+'</td><td class="wr">'+esc(y.art)+'</td><td>'+esc(y.cc)+'</td><td>'+esc(y.cl)+'</td><td>'+esc(y.tam)+'</td><td>'+esc(y.flt)+'</td><td>'+esc(y.fat)+'</td><td class="wr">'+esc(y.obs)+'</td><td class="n">'+fk(y.con)+'</td><td class="n">'+(y.uno?$m(y.val):'<span class="est">misma OP</span>')+'</td></tr>').join('')
+    const sr='<tr class="seg det '+g.st+'"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="7"><table class="pnd2 fl"><thead><tr><th>Ítem</th><th>OP</th><th>Artículo</th><th>COD</th><th>Cod. Color</th><th>Tamaño</th><th>Fecha ayer</th><th>Fecha de llegada</th><th>Área</th><th>Observaciones</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
+     +g.a.map(y=>'<tr class="'+(y.est==='Cambió'?'rojo':y.est==='Nuevo'?'nuevo':'')+'"><td class="n">'+esc(y.item)+'</td><td>'+esc(y.op)+'</td><td class="wr">'+esc(y.art)+(y.ori==='Accesorios'?' <span class="sb">Accesorio</span>':'')+'</td><td>'+esc(y.cc)+'</td><td>'+esc(y.cl)+'</td><td>'+esc(y.tam)+'</td><td>'+esc(y.fat)+'</td><td>'+esc(y.flt)+'</td><td>'+esc(y.area)+'</td><td class="wr">'+esc(y.obs)+'</td><td class="n">'+fk(y.con)+'</td><td class="n">'+(y.uno?$m(y.val):'<span class="est">misma OP</span>')+'</td></tr>').join('')
      +'</tbody></table></td></tr>';
-    return'<tr class="'+g.st+'"><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
+    const ags=[...new Set(g.a.map(y=>y.ag).filter(v=>v&&v!=='No'))].join(', ')||x.ag;
+    return'<tr class="'+g.st+'"><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
    +'</tbody></table></div>';
  };
  pasa=filtros($('#f-b'),defs,L,pintar,'f');
  $('#f-q').value=FQ.f||'';$('#f-q').oninput=()=>{FQ.f=$('#f-q').value;pintar()};pintar();
- $('#f-x').onclick=()=>exportar('Faltantes',[{n:'Faltantes',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Cod. Distribuidor','Distribuidor','Fecha de llegada','Fecha ayer','Estado','Agente','Gerente de distrito','Días','Marca','Tipo de cortina','Análisis de material','Responsable','Observaciones','Consumo','Valor (una vez por OP)','Valor de la OP'],
-  rows:ult.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.cod,x.dist,x.flt,x.fat,x.est,x.ag,x.ge,x.dias,x.mar,x.df,x.mat,x.resp,x.obs,x.con,x.uno?x.val:0,x.val])},{n:'Consumo por COD y tamaño',cab:['COD','Cod. Color','Componente','Tamaño','Faltantes','Consumo'],rows:porCod(ult).flatMap(a=>a.t.map(t=>[a.cc,a.cl,a.comp,t.tam,t.n,Math.round(t.con*100)/100]))},...(SL.length?[{n:'Salieron por artículo',cab:['Artículo','Faltantes','Pedidos','Consumo','Valor','Sin valor'],rows:[...SA.map(g=>[g.art,g.n,g.np,Math.round(g.con*100)/100,g.val,g.sv]),['Total que salió',SL.length,SLP,Math.round(SLK*100)/100,SLV,SLS]]},{n:'Salieron detalle',cab:['Pedido','Ítem','OP','Artículo','Distribuidor','Consumo','Valor'],rows:SL.map(x=>[x.pedido,x.item,x.op,x.art,x.dist,x.con,x.uno?x.val:0])}]:[]),...(OUT.length?[{n:'Excluidos (otro estado)',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Distribuidor','Estado agrupado en Pending','Consumo','Valor de la OP'],rows:OUT.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.dist,pea.get(x.op),x.con,x.val])}]:[]),hojaFiltros(pasa,$('#f-q').value)]);
+ $('#f-x').onclick=()=>exportar('Faltantes',[{n:'Faltantes',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Cod. Distribuidor','Distribuidor','Agente','Fecha ayer','Fecha de llegada','Área','Estado','Marca','Familia Financiera','Estado agrupado','SubEstado','Comercial-Zona','Días','Tipo de cortina','Análisis de material','Responsable','Observaciones','Origen','Consumo','Valor (una vez por OP)','Valor de la OP'],
+  rows:ult.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.cod,x.dist,x.ag,x.fat,x.flt,x.area,x.est,x.mar,x.fam,x.ea,x.sub,x.ge,x.dias,x.df,x.mat,x.resp,x.obs,x.ori,x.con,x.uno?x.val:0,x.val])},{n:'Consumo por COD y tamaño',cab:['COD','Cod. Color','Componente','Tamaño','Faltantes','Consumo'],rows:porCod(ult).flatMap(a=>a.t.map(t=>[a.cc,a.cl,a.comp,t.tam,t.n,Math.round(t.con*100)/100]))},...(SL.length?[{n:'Salieron por artículo',cab:['Artículo','Faltantes','Pedidos','Consumo','Valor','Sin valor'],rows:[...SA.map(g=>[g.art,g.n,g.np,Math.round(g.con*100)/100,g.val,g.sv]),['Total que salió',SL.length,SLP,Math.round(SLK*100)/100,SLV,SLS]]},{n:'Salieron detalle',cab:['Pedido','Ítem','OP','Artículo','Distribuidor','Consumo','Valor'],rows:SL.map(x=>[x.pedido,x.item,x.op,x.art,x.dist,x.con,x.uno?x.val:0])}]:[]),...(OUT.length?[{n:'Excluidos (otro estado)',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Distribuidor','Estado agrupado en Pending','Consumo','Valor de la OP'],rows:OUT.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.dist,pea.get(x.op),x.con,x.val])}]:[]),hojaFiltros(pasa,$('#f-q').value)]);
 }
 
 /* Pending */
@@ -980,8 +1076,9 @@ async function rFaltantes(){
 const SEED={"estados":[],"zonas":[],"dealers":[]};
 const SEED0=JSON.parse(JSON.stringify(SEED));
 /* Filtros comunes de Pending y Análisis Pending, en el mismo orden */
-const defsComunes=()=>[{n:'Correlaciones',f:x=>x.corr,uk:x=>x.ped,sinVacio:true,porCant:true,esp:true},{n:'Marca',f:x=>x.mar},{n:'Tipo de cortina',f:x=>x.fam},{n:'FamiliaFinanciera',f:x=>x.cf},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
- {n:'Agente',f:x=>x.ag},{n:'Comercial-Zona',f:x=>x.ge},{n:'Análisis Fec-Intaken',f:x=>x.fi},{n:'Distribuidor',f:x=>x.cli},
+/* Orden acordado en todas las consultas: Marca, Familia Financiera, Agente, Estados agrupados, SubEstado y luego el resto */
+const defsComunes=()=>[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.cf},{n:'Agente',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
+ {n:'Correlaciones',f:x=>x.corr,uk:x=>x.ped,sinVacio:true,porCant:true,esp:true},{n:'Tipo de cortina',f:x=>x.fam},{n:'Comercial-Zona',f:x=>x.ge},{n:'Análisis Fec-Intaken',f:x=>x.fi},{n:'Distribuidor',f:x=>x.cli},
  {n:'Seguimiento de cartera',f:x=>x.ca},{n:'Promoción 72 horas',f:x=>x.h72},{n:'Tipo de inventarios',f:x=>x.ti},defMat()];
 async function datosPending(){
  const d=await get('pending');
@@ -1020,7 +1117,7 @@ async function rPending(){
  el.innerHTML='<div class="chips"><span><b id="n-p"></b>pedidos</span><span><b id="n-i"></b>ítems</span><span><b id="n-v"></b>venta</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Una fila por pedido, ordenada por venta total de mayor a menor. Los ítems de cada pedido van en la segunda línea (⊞). Fuente: '+esc(d.archivo)+'.'
   +(falt.length?' Faltan por cargar: '+falt.join(', ')+'; sus columnas se verán con el valor por defecto.':'')+'</p></details>'
-  +'<div class="filtros"><input id="p-q" type="search" placeholder="Buscar pedido, OP, orden de compra, código de distribuidor, nombre o producto" aria-label="Buscar">'+segBtn+'<button type="button" class="btn ex" id="p-x">Exportar a Excel</button></div><div class="fbar" id="p-b"></div>'
+  +'<div class="filtros"><input id="p-q" type="search" placeholder="Buscar pedido, OP, orden de compra, código de distribuidor, nombre o producto" aria-label="Buscar">'+qfBtn('p')+segBtn+'<button type="button" class="btn ex" id="p-x">Exportar a Excel</button></div><div class="fbar" id="p-b"></div>'
   +'<p class="est" id="p-n"></p><div id="p-t"></div>';
  const defs=[...defsComunes(),{n:'Días P.',f:x=>x.di,num:true},{n:'Canal',f:x=>x.can}];
  const C=[['Pedido',x=>x.ped],['Ítem',x=>x.it],['OP',x=>x.op],['Marca',x=>x.mar],['Cod. DA',x=>x.cod],['Distribuidor',x=>x.cli],['Producto',x=>x.pr],['Ord. Compra',x=>x.oc],['Venta',x=>x.ve],
@@ -1073,7 +1170,7 @@ async function rAna(){
  const cols=[...new Set(L.map(x=>x.ea))].sort((a,b)=>{const i=ORDEST.indexOf(a),j=ORDEST.indexOf(b);return(i<0?99:i)-(j<0?99:j)||a.localeCompare(b,'es')});
  el.innerHTML='<h2 class="tt">Análisis Pending detallado</h2><div class="chips"><span><b id="a-np"></b>pedidos</span><span><b id="a-ni"></b>ítems</span><span><b id="a-nv"></b>venta</span></div><details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Suma de venta por pedido y distribuidor, separada por estado agrupado y ordenada por el total. Haz clic en ⊞ para ver los ítems del pedido. Fuente: '+esc(d.archivo)+'.'
   +(falt.length?' Faltan por cargar: '+falt.join(', ')+'.':'')+'</p></details>'
-  +'<div class="filtros"><input id="a-q" type="search" placeholder="Buscar pedido, OP, orden de compra, código de distribuidor o nombre" aria-label="Buscar"><button type="button" class="btn ex" id="a-x">Exportar a Excel</button></div><div class="fbar" id="a-b"></div><div id="a-t"></div>';
+  +'<div class="filtros"><input id="a-q" type="search" placeholder="Buscar pedido, OP, orden de compra, código de distribuidor o nombre" aria-label="Buscar">'+qfBtn('a')+'<button type="button" class="btn ex" id="a-x">Exportar a Excel</button></div><div class="fbar" id="a-b"></div><div id="a-t"></div>';
  const defs=defsComunes();
  let pasa=()=>true,ult={P:[],R:[]};
  const pintar=()=>{
@@ -1165,9 +1262,9 @@ async function datosGar(){
  }
  if(ms){const sinE=new Map();I.forEach(y=>{if(/BD-Master$/.test(y.ej)){const s=sinE.get(y.cod)||{n:y.dist,g:new Set(),t:y.ej};s.g.add(y.id);sinE.set(y.cod,s)}});
   if(sinE.size){const L2=[...sinE.values()].sort((a,b)=>b.g.size-a.g.size),f=s=>s.n+' ('+(s.t==='No está en BD-Master'?'no está':'sin nombre')+', '+s.g.size+')';
-   aviso.push(sinE.size+' distribuidor'+(sinE.size>1?'es':'')+' sin empleado responsable en BD-Master: '+L2.slice(0,12).map(f).join('; ')+(L2.length>12?' y '+(L2.length-12)+' más. Filtra Ejecutivo Asignado para verlos todos.':'.'))}}
+   aviso.push(sinE.size+' distribuidor'+(sinE.size>1?'es':'')+' sin empleado responsable en BD-Master: '+L2.slice(0,12).map(f).join('; ')+(L2.length>12?' y '+(L2.length-12)+' más. Filtra Agente para verlos todos.':'.'))}}
  I.sort((a,b)=>a.id.localeCompare(b.id,'es',{numeric:true})||a.ped.localeCompare(b.ped)||num(a.ip)-num(b.ip));
- return{g,I,aviso,faltan:[!ms&&'BD-Master (ejecutivo)',!ms&&!pe&&'Pending (zona del gerente)',!gu&&'Guías de despachos'].filter(Boolean)};
+ return{g,I,aviso,faltan:[!ms&&'BD-Master (agente)',!ms&&!pe&&'Pending (Comercial-Zona)',!gu&&'Guías de despachos'].filter(Boolean)};
 }
 /* Busca la columna por nombre exacto y, si no está, por parecido */
 const colDe=(cab,ex,rx)=>{let i=-1;for(const n of ex){i=cab.indexOf(n);if(i>=0)return i}return cab.findIndex(c=>rx.test(String(c)))};
@@ -1218,7 +1315,7 @@ async function rMix(){
  el.innerHTML='<h2 class="tt">Análisis MIX</h2><div class="chips"><span><b id="m-np"></b>pedidos</span><span><b id="m-ni"></b>ítems</span><span><b id="m-nq"></b>unidades</span><span><b id="m-nm"></b>M2</span><span><b id="m-nv"></b>venta</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Suma de M2 (columna M2), venta (Venta) y unidades (Qtd.) de Pending. El tipo de cortina es la columna DFamiliaFinanciera. El % de M2 es el M2 de cada fila sobre el M2 total con los filtros aplicados. La primera vez que se abre, el filtro Estados agrupados viene con Producción y No facturados, como el MIX en producción del Excel; puedes cambiarlo como cualquier filtro. Fuente: '+esc(d.archivo)+'.'
   +(falt.length?' Faltan por cargar: '+falt.join(', ')+'.':'')+'</p></details>'
-  +'<div class="filtros"><input id="m-q" type="search" placeholder="Buscar pedido, OP, orden de compra, código de distribuidor o nombre" aria-label="Buscar"><button type="button" class="btn ex" id="m-x">Exportar a Excel</button></div><div class="fbar" id="m-b"></div>'
+  +'<div class="filtros"><input id="m-q" type="search" placeholder="Buscar pedido, OP, orden de compra, código de distribuidor o nombre" aria-label="Buscar">'+qfBtn('m')+'<button type="button" class="btn ex" id="m-x">Exportar a Excel</button></div><div class="fbar" id="m-b"></div>'
   +'<div class="sh"><h3 class="st">Por tipo de cortina</h3></div><div id="m-t1"></div><div class="sh"><h3 class="st">Por distribuidor y pedido</h3><div class="bgr"><button type="button" class="btn ex" id="m-pl">⊟ Plegar todo</button><button type="button" class="btn ex" id="m-de">⊞ Desplegar todo</button><button type="button" class="btn ex" id="m-x2">Exportar a Excel</button></div></div><div id="m-t2"></div>';
  const defs=defsComunes();
  let pasa=()=>true,ult={F:[],G:[],T:{}};
@@ -1270,13 +1367,13 @@ async function rGar(){
  el.innerHTML='<h2 class="tt">Garantías y reparaciones</h2><div class="chips"><span><b id="g-ng"></b>garantías y reparaciones</span><span><b id="g-ni"></b>ítems reclamados</span><span><b id="g-nd"></b>distribuidores</span><span class="o"><b id="g-nm"></b>fuera de tiempo</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Una fila por garantía y pedido. Ordenada de más a menos días en estado. Días en estado: días hábiles (sin sábados, domingos ni festivos de Colombia) desde el último cambio de estado hasta el día de carga de la base ('+fd(new Date(g.cargado).toLocaleDateString('en-CA'))+'). En naranja: Transferida con 2 o más días hábiles, Enviar accesorios con 4 o más, En planta y Atender en obra con 5 o más, y Respuesta Cliente con más de 30. Nro de ítems reclamados: cuántos ítems del pedido se reclaman en la garantía. Haz clic en ⊞ para verlos con su ítem del pedido (columna itemPed). Fuente: '+esc(g.archivo)+'.'
   +(faltan.length?' Faltan por cargar: '+faltan.join(', ')+'.':'')+'</p></details>'+(aviso.length?'<p class="msg err">'+aviso.map(esc).join('<br>')+'</p>':'')
-  +'<div class="filtros"><input id="g-q" type="search" placeholder="Buscar garantía, pedido, distribuidor, cliente final, factura o producto" aria-label="Buscar"><button type="button" class="btn ex" id="g-x">Exportar a Excel</button></div><div class="fbar" id="g-b"></div>'
+  +'<div class="filtros"><input id="g-q" type="search" placeholder="Buscar garantía, pedido, distribuidor, cliente final, factura o producto" aria-label="Buscar">'+qfBtn('g')+'<button type="button" class="btn ex" id="g-x">Exportar a Excel</button></div><div class="fbar" id="g-b"></div>'
   +'<div class="adv" id="g-adv" role="group" aria-label="Filtro avanzado"><b>Filtro avanzado</b>'
   +'<label>Color <select id="g-col"><option value="">Todos</option><option value="n">Naranja (fuera de tiempo)</option><option value="s">Sin color (en tiempo)</option></select></label>'
   +'<label>Días en estado <select id="g-op"><option value="">Cualquiera</option><option value="gt">Mayor que (&gt;)</option><option value="ge">Mayor o igual (&ge;)</option><option value="lt">Menor que (&lt;)</option><option value="le">Menor o igual (&le;)</option><option value="eq">Igual a (=)</option><option value="bt">Entre</option></select></label>'
   +'<input id="g-n1" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Número de días"><span id="g-y" hidden>y</span><input id="g-n2" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Hasta cuántos días" hidden>'
   +'<button type="button" class="lm" id="g-al">Quitar</button></div><div id="g-t"></div>';
- const defs=[{n:'Negocio',f:x=>x.neg},{n:'Definición',f:x=>x.def},{n:'Estado',f:x=>x.est},{n:'Ejecutivo Asignado',f:x=>x.ej},{n:'Gerente Distrito',f:x=>x.ge},
+ const defs=[{n:'Agente',f:x=>x.ej},{n:'Comercial-Zona',f:x=>x.ge},{n:'Negocio',f:x=>x.neg},{n:'Definición',f:x=>x.def},{n:'Estado',f:x=>x.est},
   {n:'Distribuidor',f:x=>x.dist},{n:'Días en estado',f:x=>x.dias,num:true},{n:'Tipo de cortina',f:x=>x.lin},{n:'Guía de despacho',f:x=>x.gu?'Con guía':'Sin guía'}].map(d=>({...d,uk:x=>x.id}));
  /* Los filtros actúan sobre los ítems (como los segmentadores) y los conteos son garantías */
  let pasa=()=>true,ult=[];
@@ -1324,7 +1421,7 @@ async function rGar(){
  $('#g-al').onclick=()=>{Object.assign(AV,{col:'',op:'',n1:'',n2:''});$('#g-col').value='';$('#g-op').value='';$('#g-n1').value='';$('#g-n2').value='';sync();pintar()};
  pintar();
  $('#g-x').onclick=()=>exportar('Garantias',[
-  {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Ejecutivo Asignado','Gerente Distrito','Tipo de cortina','Fecha garantía','Cliente final','Factura'],
+  {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Agente','Comercial-Zona','Tipo de cortina','Fecha garantía','Cliente final','Factura'],
    rows:ult.map(x=>[x.id,x.ped,x.dist,x.def,x.neg,x.est,fd(x.fe),x.dias,x.al,x.gu,x.n,x.ej,x.ge,x.linT,fd(x.fecha),x.cf,x.fac])},
   {n:'Detalle de ítems',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Estado','Ítem del pedido','Ítem en la garantía','Producto','Tipo de cortina','Cantidad','Problema','Análisis'],
    rows:ult.flatMap(x=>x.its.map(y=>[x.id,x.ped,x.dist,x.est,y.ip,y.it,y.pr,y.lin,y.can,y.pb,y.an]))},
@@ -1399,7 +1496,7 @@ async function rInv(){
   +(span>=30?'<button type="button" class="kq" data-k="qui" title="El disponible no ha cambiado en 30 días o más"><b id="i-k-qui"></b>sin movimiento 30+ días</button>':'')
   +'<span><b id="i-nv"></b>valor total</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Saldo del '+fd(rec.dia)+' ('+esc(rec.archivo)+'), solo bodegas '+BODEGAS.join(', ')+'. Solo negocio WF: los demás negocios (AP, SP, MF) se quitan al cargar. Una fila por código, color y unidad, con la suma de las bodegas y de todos los tamaños; en la segunda línea (⊞) va el cuadro por tamaño y bodega. La barra bajo el disponible muestra qué parte del físico está disponible (naranja) y qué parte reservada (gris). La tendencia es el disponible de los últimos 90 días según las cargas guardadas. Agotado: hay físico pero todo está reservado. Comprometido: la mitad o más del físico está reservado. En faltantes: el código y el color aparecen en el archivo de Faltantes cargado (consumo en la unidad de ese archivo). Los componentes (código que empieza por CO o MORO) que el archivo trae sin negocio se cuentan como WF. Valor = costo financiero por cantidad física. Una fila es <b>Tela</b> si su código de color está en el libro de equivalencias (la hoja se elige por la familia del artículo); si no está y el artículo es una tela, queda como <b>Tela sin equivalencia</b>; el resto son <b>Componentes</b>. Con cualquier filtro o búsqueda activos, la tabla se ordena de mayor a menor disponible (también en el Excel exportado). Las cantidades de artículos con distinta unidad no se suman. Variación: disponible de hoy menos el disponible del '+(pd?fd(pd):'día anterior (aún no hay carga anterior)')+'. Historial guardado: '+dias.length+' día(s), máximo '+INV_DIAS+'. Las colecciones y los colores salen del libro de equivalencias.</p></details>'
-  +'<div class="filtros"><input id="i-q" type="search" placeholder="Buscar código, descripción, código de barras, color, colección o tamaño" aria-label="Buscar"><label class="chk"><input id="i-pos" type="checkbox"> Solo con disponible mayor a cero</label>'+segBtn+'<label>Marca <select id="i-mar"><option value="">Ambas</option><option value="hd">Hunter Douglas</option><option value="fl">Flexalum</option></select></label><button type="button" class="btn ex" id="i-x">Exportar a Excel</button></div><div class="fbar" id="i-b"></div>'
+  +'<div class="filtros"><input id="i-q" type="search" placeholder="Buscar código, descripción, código de barras, color, colección o tamaño" aria-label="Buscar"><label class="chk"><input id="i-pos" type="checkbox"> Solo con disponible mayor a cero</label>'+qfBtn('i')+segBtn+'<label>Marca <select id="i-mar"><option value="">Ambas</option><option value="hd">Hunter Douglas</option><option value="fl">Flexalum</option></select></label><button type="button" class="btn ex" id="i-x">Exportar a Excel</button></div><div class="fbar" id="i-b"></div>'
   +'<div class="adv" id="i-adv" role="group" aria-label="Filtro avanzado"><b>Filtro avanzado · cantidad y costo</b>'
   +'<label>Unidad <select id="i-un"></select></label>'
   +'<label>Cantidad <select id="i-op"><option value="">Cualquiera</option><option value="gt">Mayor que (&gt;)</option><option value="ge">Mayor o igual (&ge;)</option><option value="eq">Igual a (=)</option><option value="bt">Entre</option></select></label>'
@@ -1588,12 +1685,15 @@ const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxZmX2yQbqsC3MBd9
 let TAB='carga';
 const TAM=40000,PARTE=25,SYNC_MIN=3,DOM_RE=/^[a-z0-9._%+-]+@hdlao\.com$/i;
 const KS={auth:'hdfl_auth',meta:'hdfl_meta',dirty:'hdfl_dirty',team:'hdfl_team'};
-const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
+const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|equiv|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
 const MEZCLA={comentarios:1,tablas:1};
-const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',master:'BD-Master',inventario:'Inventarios (último saldo)',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
+const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',master:'BD-Master',inventario:'Inventarios (último saldo)',equiv:'Equivalencias de telas',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
 const nomBase=k=>NOM_BASE[k]||(k.startsWith('inv_')?'Inventarios · '+k.slice(4):k);
 const SY={url:APPS_SCRIPT_URL,st:'local',msg:'',busy:false,again:false,last:0,pollT:null,saveT:null,items:[],nuevos:0,needDraw:false};
-const AU={token:'',email:'',name:'',admin:false,owner:false,created:'',last:''};
+const AU={token:'',email:'',name:'',admin:false,owner:false,created:'',last:'',perms:{}};
+/* Permisos de la persona (los da el administrador en Perfil > Administración): carga, tablas, perfil. Sin conexión al servidor todo está permitido. */
+const perm=p=>!needAuth()||!!AU.admin||!!(AU.perms&&AU.perms[p]);
+const puedeSubir=k=>k==='comentarios'||(k==='tablas'?perm('tablas'):perm('carga'));
 const LS={get:k=>{try{return localStorage.getItem(k)}catch(e){return null}},set:(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}},del:k=>{try{localStorage.removeItem(k)}catch(e){}}};
 const metaG=()=>{try{return JSON.parse(LS.get(KS.meta)||'{}')}catch(e){return{}}};
 const metaS=m=>LS.set(KS.meta,JSON.stringify(m));
@@ -1722,7 +1822,7 @@ async function fusionar(k){
 }
 function aplicarTablas(){get('tablas').then(t=>{if(t)Object.keys(t).forEach(k=>{if(SEED[k])SEED[k]=t[k]})}).catch(()=>{})}
 async function clavesLocales(){
- const ks=['pending','faltantes','faltantes_prev','intaken','garantias','cartera','guias','master','inventario','comentarios','tablas'];
+ const ks=['pending','faltantes','faltantes_prev','intaken','garantias','cartera','guias','master','inventario','equiv','comentarios','tablas'];
  const dias=(await get('inv_dias'))||[];
  const lista=[...ks,'inv_dias',...dias.map(d=>'inv_'+d)],out=[];
  for(const k of lista){const v=await get(k);if(v!=null)out.push(k)}
@@ -1739,14 +1839,16 @@ async function syCiclo(manual,todo){
   const r=await api({op:'idx'});
   if(!r.ok)throw{codigo:r.error};
   SY.items=r.items;
+  if(r.user)ponerUsuario(r.user);   /* permisos al día (el administrador pudo cambiarlos) */
   const rem=new Map(r.items.map(x=>[x.k,x])),d=dirtyG();
   /* 1. Subir lo que se cargó aquí */
   for(const k of [...d]){
-   await subirSeguro(k,false);d.delete(k);dirtyS(d);
+   if(puedeSubir(k))await subirSeguro(k,false);d.delete(k);dirtyS(d);
   }
   const loc=await clavesLocales();
   /* 2. Primera conexión (o "subir todo"): lo que el servidor no tiene se sube */
   for(const k of loc){
+   if(!puedeSubir(k))continue;
    if(rem.has(k)&&!todo)continue;
    if(rem.has(k)&&todo){await subirSeguro(k,true);continue}
    await subirSeguro(k,false);
@@ -1764,6 +1866,7 @@ async function syCiclo(manual,todo){
    const m2=metaG();m2[x.k]={v:b.version,u:x.u,t:x.t};metaS(m2);
    if(MEZCLA[x.k])await putRaw('_snap_'+x.k,JSON.parse(JSON.stringify(b.val)));
    if(x.k==='tablas')aplicarTablas();
+   if(x.k==='equiv')await aplicarEquiv();
    nuevos++;
   }
   SY.last=Date.now();SY.st='ok';SY.msg='';SY.nuevos=nuevos;
@@ -1798,7 +1901,7 @@ async function cargarRef(){
   else if(r&&r.error){SY.st='err';SY.msg=errMsg(r.error);syRender()}
  }catch(e){if(e&&e.sesion)return}
  if(!ref)ref=await get('_ref').catch(()=>null);
- if(ref){aplicarRef(ref);refrescar()}
+ if(ref){aplicarRef(ref);await aplicarEquiv();refrescar()}
 }
 function syInicio(){
  clearInterval(SY.pollT);
@@ -1833,13 +1936,15 @@ async function cerrarSesion(){
  try{if(AU.token&&dirtyG().size)await syCiclo(true)}catch(e){}
  try{if(AU.token)await postSrv({op:'logout',token:AU.token})}catch(e){}
  clearInterval(SY.pollT);
- Object.keys(AU).forEach(k=>AU[k]=typeof AU[k]==='boolean'?false:'');auKeep();
+ Object.keys(AU).forEach(k=>AU[k]=typeof AU[k]==='boolean'?false:k==='perms'?{}:'');auKeep();pintarNav();
  await limpiarLocal();
  mostrarGate('login','Cerraste sesión.');
 }
 function ponerUsuario(u){
- if(!u)return;AU.email=u.email;AU.name=u.name;AU.admin=!!u.admin;AU.owner=!!u.owner;AU.created=u.created;AU.last=u.last;auKeep();
+ if(!u)return;AU.email=u.email;AU.name=u.name;AU.admin=!!u.admin;AU.owner=!!u.owner;AU.created=u.created;AU.last=u.last;
+ AU.perms=Object.assign({},u.perms||{});auKeep();
   const w=document.getElementById('rail-user');if(w)w.textContent=AU.name||AU.email;
+ if(typeof pintarNav==='function')pintarNav();
 }
 
 /* ---------- Pantalla de ingreso ---------- */
@@ -1936,13 +2041,22 @@ async function rEquipo(){
  const [c,t]=syTexto();
  const filas=SY.items.filter(x=>SYNC_RE.test(x.k)&&!x.k.startsWith('inv_2')).sort((a,b)=>nomBase(a.k).localeCompare(nomBase(b.k),'es'));
  const dias=SY.items.filter(x=>x.k.startsWith('inv_2')).length;
+ const pwBox='<details class="pw"'+(perm('perfil')?'':' open')+'><summary>Cambiar contraseña</summary><div class="ffs"><label class="fld"><span>Contraseña actual</span><span class="pwwrap"><input type="password" id="pfold" autocomplete="current-password">'+ojoBtn+'</span></label><label class="fld"><span>Nueva contraseña</span><span class="pwwrap"><input type="password" id="pfnew" autocomplete="new-password">'+ojoBtn+'</span></label><label class="fld"><span>Confirma la nueva contraseña</span><span class="pwwrap"><input type="password" id="pfnew2" autocomplete="new-password">'+ojoBtn+'</span></label><button type="button" class="btn sec" id="pfpass">Cambiar contraseña</button></div></details>';
+ const cabPerfil='<div class="prof"><span class="avatar" aria-hidden="true">'+esc(ini(AU.name||AU.email))+'</span><span class="pt"><b>'+esc(AU.name)+'</b><span class="est">'+esc(AU.email)+'</span><span class="rolechip'+(AU.admin?' adm':'')+'">'+(AU.owner?'Administrador principal':AU.admin?'Administrador':'Usuario')+'</span></span></div>';
+ /* Sin el permiso "perfil" la persona solo ve su cuenta y el cambio de contraseña */
+ if(!perm('perfil')){
+  el.innerHTML='<h2 class="tt">Mi perfil</h2><div class="grid eq"><article class="card">'+cabPerfil
+   +(profMsg?'<p class="msg '+(profMsg[0]||'ok')+'" role="status">'+esc(profMsg[1])+'</p>':'')+pwBox
+   +'<button type="button" class="btn sec dang" id="logout">Cerrar sesión</button></article></div>';
+  enlazarEquipo();return;
+ }
  el.innerHTML='<h2 class="tt">'+(AU.admin?'Perfil y equipo':'Mi perfil')+'</h2>'
  +'<div class="grid eq">'
- +'<article class="card"><div class="prof"><span class="avatar" aria-hidden="true">'+esc(ini(AU.name||AU.email))+'</span><span class="pt"><b>'+esc(AU.name)+'</b><span class="est">'+esc(AU.email)+'</span><span class="rolechip'+(AU.admin?' adm':'')+'">'+(AU.owner?'Administrador principal':AU.admin?'Administrador':'Usuario')+'</span></span></div>'
+ +'<article class="card">'+cabPerfil
  +'<p class="est">Cuenta creada: '+(AU.created?esc(syFecha(Date.parse(AU.created))):'—')+' · Último acceso: '+(AU.last?esc(syFecha(Date.parse(AU.last))):'—')+'</p>'
  +(profMsg?'<p class="msg '+(profMsg[0]||'ok')+'" role="status">'+esc(profMsg[1])+'</p>':'')
  +'<label class="fld"><span>Nombre</span><input type="text" id="pfname" value="'+esc(AU.name)+'"></label><button type="button" class="btn sec" id="pfsave">Guardar nombre</button>'
- +'<details class="pw"><summary>Cambiar contraseña</summary><div class="ffs"><label class="fld"><span>Contraseña actual</span><span class="pwwrap"><input type="password" id="pfold" autocomplete="current-password">'+ojoBtn+'</span></label><label class="fld"><span>Nueva contraseña</span><span class="pwwrap"><input type="password" id="pfnew" autocomplete="new-password">'+ojoBtn+'</span></label><label class="fld"><span>Confirma la nueva contraseña</span><span class="pwwrap"><input type="password" id="pfnew2" autocomplete="new-password">'+ojoBtn+'</span></label><button type="button" class="btn sec" id="pfpass">Cambiar contraseña</button></div></details>'
+ +pwBox
  +'<button type="button" class="btn sec dang" id="logout">Cerrar sesión</button></article>'
  +'<article class="card"><h3>Sincronización</h3><p class="est"><span class="syc '+c+'"><i></i><span>'+esc(t)+'</span></span></p>'
  +'<p class="est">Cada base que cargas se sube a Google Sheets y el resto del equipo la recibe sola, cada '+SYNC_MIN+' minutos o con el botón. Las tablas y los comentarios se combinan entre varias personas; las demás bases quedan con la última carga.</p>'
@@ -1960,14 +2074,16 @@ async function rEquipo(){
  if(AU.admin)rAdm();
 }
 function enlazarEquipo(){
- const g=id=>document.getElementById(id);
+ const g0=id=>document.getElementById(id),nada={},g=id=>g0(id)||nada;
  g('logout').onclick=cerrarSesion;
+ g('pfpass').onclick=null;
+ if(!g0('sysync')){g('pfpass').onclick=cambiarPw;return}
  g('sysync').onclick=()=>syCiclo(true);
  const up=g('supall');if(up)up.onclick=()=>{confirmSubir=true;rEquipo()};
  const no=g('supno');if(no)no.onclick=()=>{confirmSubir=false;rEquipo()};
  const ye=g('supyes');if(ye)ye.onclick=async()=>{confirmSubir=false;await syCiclo(true,true);rEquipo()};
  g('pfsave').onclick=async()=>{const n=g('pfname').value.trim();if(n.length<3){profMsg=['err',ERR.nombre];return rEquipo()}try{const r=await api({op:'profile',name:n});profMsg=r.ok?['ok','Nombre actualizado.']:['err',errMsg(r.error)];if(r.ok)ponerUsuario(r.user)}catch(e){if(!e||!e.sesion)profMsg=['err',ERR.red]}rEquipo()};
- g('pfpass').onclick=async()=>{const o=g('pfold').value,n=g('pfnew').value,n2=g('pfnew2').value;if(n.length<8){profMsg=['err',ERR.contrasena];return rEquipo()}if(n!==n2){profMsg=['err','Las contraseñas nuevas no coinciden.'];return rEquipo()}try{const r=await api({op:'profile',password:o,newPassword:n});profMsg=r.ok?['ok','Contraseña actualizada.']:['err',r.error==='credenciales'?'La contraseña actual no es correcta.':errMsg(r.error)]}catch(e){if(!e||!e.sesion)profMsg=['err',ERR.red]}rEquipo()};
+ g('pfpass').onclick=cambiarPw;
  g('bkdown').onclick=async()=>{
   const o={tipo:'tablero-hd-fl-copia',fecha:new Date().toISOString(),tablas:await get('tablas')||null,comentarios:await get('comentarios')||null};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(o,null,1)],{type:'application/json'}));a.download='copia_tablero_hd-fl_'+new Date().toLocaleDateString('en-CA')+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000);
@@ -1984,7 +2100,10 @@ function enlazarEquipo(){
  };
 }
 
+async function cambiarPw(){const g=id=>document.getElementById(id),o=g('pfold').value,n=g('pfnew').value,n2=g('pfnew2').value;if(n.length<8){profMsg=['err',ERR.contrasena];return rEquipo()}if(n!==n2){profMsg=['err','Las contraseñas nuevas no coinciden.'];return rEquipo()}try{const r=await api({op:'profile',password:o,newPassword:n});profMsg=r.ok?['ok','Contraseña actualizada.']:['err',r.error==='credenciales'?'La contraseña actual no es correcta.':errMsg(r.error)]}catch(e){if(!e||!e.sesion)profMsg=['err',ERR.red]}rEquipo()}
+
 /* ---------- Administración (solo administradores) ---------- */
+const PERM_UI=[['carga','Carga'],['tablas','Tablas'],['perfil','Perfil completo']];
 const ADM={users:null,pend:[],loading:false,err:'',temp:null,q:'',conf:null};
 async function admCargar(op,extra){
  if(!syOn())return;ADM.loading=true;ADM.err='';
@@ -2006,14 +2125,17 @@ function rAdm(){
  +'<form class="row" id="admadd"><label class="fld"><span>Agregar administrador (correo @hdlao.com)</span><input type="email" id="admmail" placeholder="nombre.apellido@hdlao.com"></label><button class="btn" type="submit">Agregar</button></form>'
  +(ADM.pend.length?'<p class="est">Administradores sin registrarse aún: '+ADM.pend.map(esc).join(', ')+'</p>':'')
  +'<div class="row"><label class="fld"><span>Buscar</span><input type="search" id="admq" value="'+esc(ADM.q)+'" placeholder="Nombre o correo"></label><button type="button" class="btn sec" data-admreload>Actualizar</button></div>'
- +'<div class="tw eqt"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Registrado</th><th>Último acceso</th><th></th></tr></thead><tbody>'
- +(vis.map(u=>'<tr><td><b>'+esc(u.name)+'</b></td><td>'+esc(u.email)+'</td><td>'+(u.owner?'Administrador principal':u.admin?'Administrador':'Usuario')+'</td><td>'+(u.status==='Pendiente'?'<b>Pendiente</b>':u.active?'Activo':'Inactivo')+'</td><td>'+(u.created?esc(syFecha(Date.parse(u.created))):'—')+'</td><td>'+(u.last?esc(syFecha(Date.parse(u.last))):'—')+'</td><td><div class="acts2">'
+ +'<p class="est"><b>Permisos:</b> <i>Carga</i> deja subir archivos (todas las bases y las equivalencias de telas); <i>Tablas</i> deja ver y editar la pestaña Tablas; <i>Perfil completo</i> muestra la sincronización, las copias y las bases compartidas. Sin permisos la persona consulta los informes y solo puede cambiar su contraseña. Los administradores tienen todos.</p>'
+ +'<div class="tw eqt"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Permisos</th><th>Registrado</th><th>Último acceso</th><th></th></tr></thead><tbody>'
+ +(vis.map(u=>'<tr><td><b>'+esc(u.name)+'</b></td><td>'+esc(u.email)+'</td><td>'+(u.owner?'Administrador principal':u.admin?'Administrador':'Usuario')+'</td><td>'+(u.status==='Pendiente'?'<b>Pendiente</b>':u.active?'Activo':'Inactivo')+'</td>'
+  +'<td>'+(u.admin?'<span class="est">Todos</span>':'<div class="prm" data-pm="'+esc(u.email)+'">'+PERM_UI.map(([k,l])=>'<label class="chk"><input type="checkbox" value="'+k+'"'+(u.perms&&u.perms[k]?' checked':'')+'> '+l+'</label>').join('')+'</div>')+'</td><td>'+(u.created?esc(syFecha(Date.parse(u.created))):'—')+'</td><td>'+(u.last?esc(syFecha(Date.parse(u.last))):'—')+'</td><td><div class="acts2">'
   +(u.owner?(AU.owner?cb('reset|'+u.email,'Restablecer'):''):(u.status==='Pendiente'?cb('on|'+u.email,'Aprobar')+cb('off|'+u.email,'Rechazar','dang'):((u.admin?cb('rmadm|'+u.email,'Quitar admin'):cb('mkadm|'+u.email,'Hacer admin'))+(u.email===AU.email?'':(u.active?cb('off|'+u.email,'Desactivar','dang'):cb('on|'+u.email,'Activar')))+cb('reset|'+u.email,'Restablecer'))))
-  +'</div></td></tr>').join('')||'<tr><td colspan="7" class="est">Sin resultados.</td></tr>')
+  +'</div></td></tr>').join('')||'<tr><td colspan="8" class="est">Sin resultados.</td></tr>')
  +'</tbody></table></div>';
  el.querySelectorAll('[data-adm]').forEach(b=>b.onclick=()=>{const k=b.dataset.adm;if(ADM.conf!==k){ADM.conf=k;rAdm();return}const[a,email]=k.split('|');
   if(a==='mkadm')admCargar('setAdmin',{email,admin:true});if(a==='rmadm')admCargar('setAdmin',{email,admin:false});if(a==='off')admCargar('setActive',{email,active:false});if(a==='on')admCargar('setActive',{email,active:true});if(a==='reset')admCargar('resetPass',{email})});
  el.querySelectorAll('[data-admreload]').forEach(b=>b.onclick=()=>{ADM.users=null;ADM.err='';rAdm()});
+ el.querySelectorAll('[data-pm]').forEach(bx=>bx.onchange=()=>{const perms={};bx.querySelectorAll('input').forEach(i=>perms[i.value]=i.checked);bx.querySelectorAll('input').forEach(i=>i.disabled=true);admCargar('setPerms',{email:bx.dataset.pm,perms})});
  const f=document.getElementById('admadd');if(f)f.onsubmit=e=>{e.preventDefault();const m=document.getElementById('admmail').value.trim().toLowerCase();if(!DOM_RE.test(m)){ADM.err=ERR.dominio;return rAdm()}admCargar('addAdmin',{email:m})};
  const s=document.getElementById('admq');if(s)s.oninput=()=>{ADM.q=s.value;const pos=s.selectionStart;rAdm();const n=document.getElementById('admq');if(n){n.focus();n.setSelectionRange(pos,pos)}};
  const c=el.querySelector('[data-admcopy]');if(c)c.onclick=()=>{try{navigator.clipboard.writeText(ADM.temp[1]);c.textContent='Copiada'}catch(e){}};
@@ -2022,12 +2144,21 @@ function rAdm(){
 
 /* Navegación */
 const V={carga:['Carga',rCarga],faltantes:['Faltantes',rFaltantes],pending:['Pending',rPending],ana:['Análisis Pending',rAna],mix:['Análisis MIX',rMix],gar:['Garantías',rGar],inv:['Inventarios',rInv],tab:['Tablas',rTab],equipo:['Perfil',rEquipo]};
+/* Carga y Tablas solo aparecen para los administradores y para quien tenga ese permiso */
+const visible=k=>k==='carga'?perm('carga'):k==='tab'?perm('tablas'):true;
+function pintarNav(){
+ const ks=Object.keys(V).filter(visible),cur=$('#nav').dataset.ks||'';
+ if(cur!==ks.join(',')){$('#nav').dataset.ks=ks.join(',');$('#nav').innerHTML=ks.map(k=>'<button data-v="'+k+'" title="'+V[k][0]+'"><span>'+V[k][0]+'</span></button>').join('')}
+ if(AU.token&&typeof TAB==='string'&&!visible(TAB)&&!document.body.classList.contains('locked'))ver(TAB);
+ else{const b=$('#nav button[data-v='+TAB+']');if(b)b.setAttribute('aria-current',true)}
+}
 function ver(id){
+ if(!V[id]||!visible(id))id=Object.keys(V).find(visible);
  TAB=id;
- Object.keys(V).forEach(k=>{$('#'+k).hidden=k!==id;$('#nav button[data-v='+k+']').setAttribute('aria-current',k===id)});
+ Object.keys(V).forEach(k=>{$('#'+k).hidden=k!==id;const b=$('#nav button[data-v='+k+']');if(b)b.setAttribute('aria-current',k===id)});
  V[id][1]();
 }
-$('#nav').innerHTML=Object.keys(V).map(k=>'<button data-v="'+k+'" title="'+V[k][0]+'"><span>'+V[k][0]+'</span></button>').join('');
+pintarNav();
 $('#nav').onclick=e=>{const b=e.target.closest('button');if(b)ver(b.dataset.v)};
 /* Contraer o extender el menú lateral; se recuerda la última elección en este navegador */
 (()=>{
