@@ -456,6 +456,14 @@ details.pw summary{cursor:pointer;color:var(--ac);font-weight:700}
 .editbar{background:var(--o20);padding:12px 14px;display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap;margin:10px 0}
 .editbar>div:first-child{display:flex;flex-direction:column;gap:2px}
 .tmp{display:block;font:700 18px/26px monospace;margin-top:6px}
+nav button[data-v=des]::before{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4h14v12H1zM15 8h4l4 4v4h-8z'/%3E%3Ccircle cx='5.5' cy='18.5' r='2'/%3E%3Ccircle cx='18.5' cy='18.5' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 4h14v12H1zM15 8h4l4 4v4h-8z'/%3E%3Ccircle cx='5.5' cy='18.5' r='2'/%3E%3Ccircle cx='18.5' cy='18.5' r='2'/%3E%3C/svg%3E")}
+/* v46: consulta Despachos y carga de dos archivos */
+.desq{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;margin:0 0 12px}
+.desq .fld{flex:1 1 420px;margin:0}
+.desq textarea{width:100%;font:14px/1.4 inherit;font-family:inherit;padding:8px 10px;border:1px solid var(--ln);border-radius:2px;resize:vertical;min-height:84px}
+.desq .acts{display:flex;gap:8px}
+table.des tr.gp td{border-top:2px solid var(--ln)}
+article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 /* v45: botón gris para quitar todos los filtros; permisos por persona en Administración */
 .btn.qf{background:var(--mut);color:#fff;border:0;white-space:nowrap}
 .btn.qf:hover{background:var(--ink);color:#fff}
@@ -472,6 +480,7 @@ details.pw summary{cursor:pointer;color:var(--ac);font-weight:700}
 <section id="ana" hidden></section>
 <section id="mix" hidden></section>
 <section id="gar" hidden></section>
+<section id="des" hidden></section>
 <section id="inv" hidden></section>
 <section id="tab" hidden></section>
 <section id="equipo" hidden></section>
@@ -530,7 +539,7 @@ const BASES=[
  {id:'intaken',n:'Intaken por día',h:['Pedido','Venta','FechaPed'],t:'Historial completo. Puede tardar unos segundos.'},
  {id:'garantias',n:'Garantías',h:['idGarantia','Estado'],t:'Reemplaza la carga anterior.'},
  {id:'cartera',n:'Seguimiento de cartera',h:['Pedido de ventas','Importe en Pesos'],t:'Reemplaza la carga anterior.'},
- {id:'guias',n:'Guías despachos',h:['Id remision','Fecha despacho'],t:'Acepta .xls y .xlsx.'},
+ {id:'guias',n:'Guías despachos + DRIVE CAC & ALMACEN',h:['Id remision','Fecha despacho'],t:'Elige o arrastra los 2 archivos a la vez (Guías de despachos fuera de Bogotá y DRIVE CAC & ALMACEN): el tablero reconoce cuál es cuál. Acepta .xls y .xlsx.',multi:true},
  {id:'master',n:'BD-Master (columnas A a K)',h:['Cuenta de cliente','Empresa'],t:'Se actualiza cada 15 días.'},
  {id:'inventario',n:'Inventarios (saldo)',h:['ITEMID','AVAILPHYSICAL','INVENTLOCATIONID'],t:'Solo negocio WF y bodegas HDC050, HDC005 y HDC026A. Cada día se suma al historial de 90 días.'},
  {id:'equiv',n:'Equivalencias de telas',h:[],t:'Libro EQUIVALENCIAS_HD-FL-SC_OFICIAL (una hoja por línea). Cárgalo solo cuando se actualice o se agregue una tela: se suma a las equivalencias que ya tiene el tablero y se cruza con Inventarios.'}
@@ -635,7 +644,8 @@ async function rCarga(){
   const r=await get(b.id);
   h+=`<article class="card ${r?'ok':'vacia'}" id="c-${b.id}"><h3>${b.n}</h3><p class="est">${b.t}</p>`
    +`<p class="est">${r?'Cargada el '+esc(new Date(r.cargado).toLocaleString('es-CO'))+' · '+r.n.toLocaleString('es-CO')+' filas<br>'+esc(r.archivo)+(r.por?' · '+esc(r.por):''):'Sin datos todavía.'}</p>`
-   +`<label class="btn">Elegir archivo<input type="file" accept=".xlsx,.xls,.xlsm,.csv" data-b="${b.id}"></label>`;
+   +(b.multi?await (async()=>{const dv=await get('drive');return'<p class="est">DRIVE CAC & ALMACEN: '+(dv?'cargado el '+esc(new Date(dv.cargado).toLocaleString('es-CO'))+' · '+dv.n.toLocaleString('es-CO')+' filas<br>'+esc(dv.archivo):'sin datos todavía.')+'</p>'})():'')
+   +`<label class="btn">${b.multi?'Elegir archivos':'Elegir archivo'}<input type="file" accept=".xlsx,.xls,.xlsm,.csv" data-b="${b.id}"${b.multi?' multiple':''}></label>`;
   if(b.id==='faltantes'){
    const p=await get('faltantes_prev');
    h+=`<p class="est">${p?'Carga anterior: '+esc(p.archivo):'Aún no hay carga anterior.'}</p>`
@@ -645,10 +655,15 @@ async function rCarga(){
  }
  $('#carga').innerHTML=h+'</div>';
  $('#carga').querySelectorAll('input[type=file]').forEach(i=>i.onchange=()=>cargar(i));
+ /* La tarjeta de Guías también recibe los archivos arrastrados */
+ $('#carga').querySelectorAll('article').forEach(a=>{const i=a.querySelector('input[multiple]');if(!i)return;
+  a.ondragover=e=>{e.preventDefault();a.classList.add('drop')};a.ondragleave=()=>a.classList.remove('drop');
+  a.ondrop=e=>{e.preventDefault();a.classList.remove('drop');cargar(i,[...e.dataTransfer.files])}});
 }
-async function cargar(i){
- const f=i.files[0];if(!f)return;
+async function cargar(i,lista){
  const b=BASES.find(x=>x.id===i.dataset.b),prev=!!i.dataset.prev;
+ if(b.multi)return cargarDespachos(i,lista||[...i.files]);
+ const f=i.files[0];if(!f)return;
  const msg=i.closest('article').querySelector('.msg');
  msg.className='msg';msg.textContent='Leyendo '+f.name+'…';
  try{
@@ -669,6 +684,33 @@ async function cargar(i){
  finally{i.value=''}
 }
 
+/* Guías de despachos y DRIVE CAC & ALMACEN se cargan juntos: el archivo con "Id remision" es Guías; el otro es DRIVE (fecha en la columna A, pedido en la B) */
+async function cargarDespachos(i,files){
+ if(!files.length)return;
+ const b=BASES.find(x=>x.id==='guias'),msg=i.closest('article').querySelector('.msg'),res=[];let err=false;
+ msg.className='msg';msg.textContent='Leyendo '+files.map(f=>f.name).join(' y ')+'…';
+ for(const f of files){
+  try{
+   await new Promise(r=>setTimeout(r,30));
+   const base={archivo:f.name,por:AU.name||'',cargado:new Date().toISOString(),dia:new Date().toLocaleDateString('en-CA')};
+   let d=null;try{d=await leer(f,b)}catch(e){d=null}
+   if(d){await put('guias',{...base,cab:d.cab,rows:d.rows,n:d.rows.length});res.push('Guías de despachos: '+d.rows.length.toLocaleString('es-CO')+' filas ('+f.name+')');continue}
+   const dr=await driveLeer(f);
+   await put('drive',{...base,cab:dr.cab,rows:dr.rows,n:dr.rows.length});res.push('DRIVE CAC & ALMACEN: '+dr.rows.length.toLocaleString('es-CO')+' filas ('+f.name+')');
+  }catch(e){err=true;res.push(f.name+': '+(e.message||String(e)))}
+ }
+ i.value='';await rCarga();
+ const m=$('#c-guias .msg');m.className='msg '+(err?'err':'ok');m.innerHTML=(err?'':'Listo. ')+res.map(esc).join('<br>');
+}
+async function driveLeer(f){
+ const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true,dense:true});
+ const nom=wb.SheetNames.find(n=>/drive|cac|almac/i.test(n))||wb.SheetNames[0];
+ const F=XLSX.utils.sheet_to_json(wb.Sheets[nom],{header:1,raw:true,defval:'',blankrows:false});
+ const pareceFecha=v=>v instanceof Date||/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(String(v).trim())||/^\d{4}-\d\d-\d\d/.test(String(v).trim());
+ const rows=F.filter(r=>String(r[1]==null?'':r[1]).trim()!==''&&pareceFecha(r[0])).map(r=>[r[0],r[1]]);
+ if(!rows.length)throw new Error('No reconocí el archivo: no es Guías de despachos (columnas Id remision y Fecha despacho) ni DRIVE CAC & ALMACEN (fecha en la columna A y pedido en la B).');
+ return{cab:['Fecha','Pedido'],rows};
+}
 /* Segunda línea: igual que en Análisis Pending, cada fila se abre con ⊞ y muestra los campos de los filtros; el botón de arriba abre o cierra todas */
 let SEGA=false;
 const segBtn='<button type="button" class="btn sec sgb">Abrir todas las filas</button>';
@@ -728,7 +770,7 @@ function resolvedor(rec,ref){
    franja naranja #F08200, cabeceras en gris #5B6770 con texto blanco en mayúsculas, filas alternas en tinte de gris,
    total en tinte de naranja, Arial. Sin logo, sin sombras ni degradados. */
 const XC={or:'FFF08200',gr:'FF5B6770',ink:'FF1F2528',w:'FFFFFFFF',t10:'FFEFF0F1',t20:'FFDEE1E2',o20:'FFFCE6CC',cr:'FF971B2F',bo:'FFB94700'};
-const XT={Faltantes:'Análisis de faltantes',Pending:'Pending',Analisis_Pending:'Análisis Pending detallado',Analisis_MIX:'Análisis MIX',MIX_por_distribuidor_y_pedido:'Análisis MIX · por distribuidor y pedido',Garantias:'Garantías · RES.GAR-REP',Inventarios:'Inventarios'};
+const XT={Faltantes:'Análisis de faltantes',Pending:'Pending',Analisis_Pending:'Análisis Pending detallado',Analisis_MIX:'Análisis MIX',MIX_por_distribuidor_y_pedido:'Análisis MIX · por distribuidor y pedido',Garantias:'Garantías · RES.GAR-REP',Inventarios:'Inventarios',Despachos:'Despachos'};
 const xFill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c}}),xLine=(c,st)=>({style:st||'thin',color:{argb:c}});
 const X_ID=/^(pedido|ítem( del pedido| en la garantía)?|item|op|cod\b|cod\.|código|nro garantía|guía|factura|ord\. compra|id\b)/i;
 function xKind(h,A,money){
@@ -1431,6 +1473,72 @@ async function rGar(){
   (h=>{const t=txtAv();if(t.length){h.rows=h.rows.filter(r=>r[0]!=='Sin filtros');h.rows.push(...t)}return h})(hojaFiltros(pasa,$('#g-q').value))]);
 }
 
+/* ===== Despachos (v46): fechas de envío y número de guía de varios pedidos o garantías a la vez =====
+   Guías de despachos (fuera de Bogotá): el pedido o la garantía está en las columnas AC o AD (y en las columnas cuyo encabezado diga "pedido"),
+   la guía en la columna AU y la fecha en "Fecha despacho". DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B.
+   No depende de Pending: sirve para cualquier mes que esté en los archivos cargados. */
+const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',T_GAR='Garantía / Reparación';
+const kPed=v=>String(v==null?'':v).replace(/\s+/g,'').toUpperCase().replace(/\.0+$/,'');
+const dig5=v=>String(v==null?'':v).match(/\d{5,}/g)||[];
+const fDes=v=>{if(v instanceof Date)return dk(v);if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10)}
+ const t=String(v==null?'':v).trim(),m=t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);if(m)return(m[3].length===2?'20'+m[3]:m[3])+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');return/^\d{4}-\d\d-\d\d/.test(t)?t.slice(0,10):t};
+async function datosDes(){
+ const [gu,dr]=await Promise.all([get('guias'),get('drive')]);
+ const ex=new Map(),nu=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}a.push(e)};
+ const meter=(v,e)=>{if(v==null||v==='')return;add(ex,kPed(v),e);dig5(v).forEach(d=>add(nu,d,e))};
+ if(gu){const c=gu.cab.map(x=>String(x));let iF=c.indexOf('Fecha despacho');if(iF<0)iF=c.findIndex(h=>/fecha.*desp/i.test(h));
+  const cols=[28,29,...c.map((h,i)=>/pedido/i.test(h)&&i!==28&&i!==29?i:-1).filter(i=>i>=0)];
+  for(const r of gu.rows){const e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU};cols.forEach(i=>meter(r[i],e))}}
+ if(dr)for(const r of dr.rows)meter(r[1],{f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR});
+ /* búsqueda: primero el valor exacto; si no aparece, el número (así 148054 encuentra "GAR-148054") */
+ const buscar=t=>{const k=kPed(t);let a=ex.get(k);if(!a||!a.length){const d=dig5(t);a=d.length?[].concat(...d.map(x=>nu.get(x)||[])):[]}
+  const vis=new Set();return a.filter(e=>{const z=e.f+'|'+e.g+'|'+e.o;if(vis.has(z))return false;vis.add(z);return true}).sort((p,q)=>String(q.f).localeCompare(String(p.f)))};
+ return{gu,dr,buscar};
+}
+async function rDes(){
+ const el=$('#des'),D=await datosDes();
+ if(!D.gu&&!D.dr){el.innerHTML='<h2 class="tt">Despachos</h2>'+vacio('Todavía no hay datos de despachos. Carga los archivos de Guías de despachos y DRIVE CAC & ALMACEN en la pestaña Carga.');return}
+ const rng=A=>{const f=A.flatMap(x=>x.rows.map(r=>fDes(x===D.dr?r[0]:r[x.cab.indexOf('Fecha despacho')]))).filter(v=>/^\d{4}-\d\d-\d\d$/.test(v)).sort();return f.length?fd(f[0])+' al '+fd(f[f.length-1]):'sin fechas'};
+ el.innerHTML='<h2 class="tt">Despachos</h2><div class="chips"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>despachos</span></div>'
+  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Pega uno o varios pedidos o garantías (uno por línea, o separados por coma, punto y coma o espacio). Por cada uno se listan todas las fechas de envío que aparecen, de la más nueva a la más antigua, con su número de guía. '
+  +'Guías de despachos (envíos fuera de Bogotá): el pedido o la garantía se busca en las columnas AC y AD, la guía es la columna AU y la fecha la columna “Fecha despacho”'+(D.gu?' ('+esc(D.gu.archivo)+', '+rng([D.gu])+')':' (sin cargar)')+'. '
+  +'DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B'+(D.dr?' ('+esc(D.dr.archivo)+', '+rng([D.dr])+')':' (sin cargar)')+'. Las garantías y reparaciones son los números de 6 dígitos. Si el valor exacto no aparece, se busca por el número (por ejemplo, 148054 encuentra “GAR-148054”). No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></details>'
+  +'<div class="desq"><label class="fld"><span>Pedidos o garantías a consultar</span><textarea id="d-ped" rows="4" spellcheck="false" placeholder="Pega aquí los pedidos o garantías, por ejemplo:&#10;PV-0123456&#10;148054"></textarea></label>'
+  +'<div class="acts"><button type="button" class="btn" id="d-go">Consultar</button><button type="button" class="btn sec" id="d-cl">Limpiar lista</button></div></div>'
+  +'<div class="filtros">'+qfBtn('d')+'<button type="button" class="btn ex" id="d-x">Exportar a Excel</button></div><div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
+ const ta=$('#d-ped');ta.value=FQ.dPed||'';
+ let pasa=()=>true,L=[],NF=[],toks=[];
+ const pintar=()=>{
+  const R=L.filter(x=>pasa(x));
+  const peds=[...new Set(R.map(x=>x.ped))];
+  $('#d-nb').textContent=toks.length.toLocaleString('es-CO');$('#d-ne').textContent=(toks.length-NF.length).toLocaleString('es-CO');$('#d-nn').textContent=NF.length.toLocaleString('es-CO');$('#d-nd').textContent=R.length.toLocaleString('es-CO');
+  $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> <span id="d-nfl">'+esc(NF.join(', '))+'</span> <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
+  const cp=$('#d-cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NF.join('\n'));cp.textContent='Copiado'}catch(e){}};
+  if(!toks.length){$('#d-t').innerHTML=vacio('Pega los pedidos o garantías y pulsa Consultar.');return}
+  if(!R.length){$('#d-t').innerHTML=vacio(L.length?'Ningún despacho coincide con los filtros.':'No se encontraron despachos para esos pedidos.');return}
+  let t='<div class="tw"><table class="pv des"><thead><tr><th>Pedido / garantía</th><th>Tipo</th><th class="n">Envíos</th><th>Fecha de envío</th><th>Número de guía</th><th>Origen</th></tr></thead><tbody>';
+  peds.forEach(p=>{const A=R.filter(x=>x.ped===p);
+   A.forEach((x,i)=>{t+='<tr'+(i===0?' class="gp"':'')+'>'+(i===0?'<td rowspan="'+A.length+'"><b>'+esc(p)+'</b></td><td rowspan="'+A.length+'">'+esc(x.tipo)+'</td><td class="n" rowspan="'+A.length+'">'+A.length+'</td>':'')
+    +'<td>'+esc(fd(x.f))+(i===0&&A.length>1?' <span class="sb">más reciente</span>':'')+'</td><td>'+esc(x.g)+'</td><td>'+esc(x.o)+'</td></tr>'})});
+  $('#d-t').innerHTML=t+'</tbody></table></div>';
+ };
+ const consultar=()=>{
+  FQ.dPed=ta.value;
+  const vis=new Set();toks=ta.value.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x&&!vis.has(kPed(x))&&vis.add(kPed(x)));
+  L=[];NF=[];
+  for(const t of toks){const A=D.buscar(t);if(!A.length){NF.push(t);continue}
+   const tipo=/^\d{6}$/.test(t)?T_GAR:'Pedido';A.forEach(e=>L.push({ped:t,tipo,f:e.f,g:e.g,o:e.o,mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
+  const defs=[{n:'Origen',f:x=>x.o},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes,porMes:true},{n:'Número de guía',f:x=>x.g}];
+  pasa=filtros($('#d-b'),defs,L,pintar,'d');pintar();
+ };
+ $('#d-go').onclick=consultar;$('#d-cl').onclick=()=>{ta.value='';FQ.dPed='';consultar();ta.focus()};
+ ta.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();consultar()}};
+ ta.onpaste=()=>setTimeout(consultar,0);
+ consultar();
+ $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Pedido / garantía','Tipo','Fecha de envío','Número de guía','Origen'],rows:L.filter(x=>pasa(x)).map(x=>[x.ped,x.tipo,fd(x.f),x.g,x.o])},
+  ...(NF.length?[{n:'No encontrados',cab:['Pedido / garantía'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
+}
+
 /* ===== Inventarios (versión 41) ===== */
 const BODEGAS=['HDC050','HDC005','HDC026A'],INV_DIAS=90;
 const UNI={m2:'m²','m²':'m²',m:'m',pcs:'pcs',pc:'pcs',kt:'kt',st:'st',pair:'pair',gal:'gal',kg:'kg',l:'l',g:'g'};
@@ -1688,9 +1796,9 @@ const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxZmX2yQbqsC3MBd9
 let TAB='carga';
 const TAM=40000,PARTE=25,SYNC_MIN=3,DOM_RE=/^[a-z0-9._%+-]+@hdlao\.com$/i;
 const KS={auth:'hdfl_auth',meta:'hdfl_meta',dirty:'hdfl_dirty',team:'hdfl_team'};
-const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|equiv|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
+const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|equiv|drive|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
 const MEZCLA={comentarios:1,tablas:1};
-const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',master:'BD-Master',inventario:'Inventarios (último saldo)',equiv:'Equivalencias de telas',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
+const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',drive:'DRIVE CAC & ALMACEN',master:'BD-Master',inventario:'Inventarios (último saldo)',equiv:'Equivalencias de telas',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
 const nomBase=k=>NOM_BASE[k]||(k.startsWith('inv_')?'Inventarios · '+k.slice(4):k);
 const SY={url:APPS_SCRIPT_URL,st:'local',msg:'',busy:false,again:false,last:0,pollT:null,saveT:null,items:[],nuevos:0,needDraw:false};
 const AU={token:'',email:'',name:'',admin:false,owner:false,created:'',last:'',perms:{}};
@@ -1825,7 +1933,7 @@ async function fusionar(k){
 }
 function aplicarTablas(){get('tablas').then(t=>{if(t)Object.keys(t).forEach(k=>{if(SEED[k])SEED[k]=t[k]})}).catch(()=>{})}
 async function clavesLocales(){
- const ks=['pending','faltantes','faltantes_prev','intaken','garantias','cartera','guias','master','inventario','equiv','comentarios','tablas'];
+ const ks=['pending','faltantes','faltantes_prev','intaken','garantias','cartera','guias','master','inventario','equiv','drive','comentarios','tablas'];
  const dias=(await get('inv_dias'))||[];
  const lista=[...ks,'inv_dias',...dias.map(d=>'inv_'+d)],out=[];
  for(const k of lista){const v=await get(k);if(v!=null)out.push(k)}
@@ -2146,7 +2254,7 @@ function rAdm(){
 }
 
 /* Navegación */
-const V={carga:['Carga',rCarga],faltantes:['Faltantes',rFaltantes],pending:['Pending',rPending],ana:['Análisis Pending',rAna],mix:['Análisis MIX',rMix],gar:['Garantías',rGar],inv:['Inventarios',rInv],tab:['Tablas',rTab],equipo:['Perfil',rEquipo]};
+const V={carga:['Carga',rCarga],faltantes:['Faltantes',rFaltantes],pending:['Pending',rPending],ana:['Análisis Pending',rAna],mix:['Análisis MIX',rMix],gar:['Garantías',rGar],des:['Despachos',rDes],inv:['Inventarios',rInv],tab:['Tablas',rTab],equipo:['Perfil',rEquipo]};
 /* Carga y Tablas solo aparecen para los administradores y para quien tenga ese permiso */
 const visible=k=>k==='carga'?perm('carga'):k==='tab'?perm('tablas'):true;
 function pintarNav(){
