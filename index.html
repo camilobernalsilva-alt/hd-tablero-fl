@@ -467,6 +467,12 @@ article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 /* v47: Despachos con informe de negocios: tarjetas por pedido con seguimiento de cada envío */
 .chips.dk{grid-template-columns:repeat(auto-fit,minmax(132px,1fr))}
 .chips.dk b{font-size:24px;line-height:30px}
+.chips.dk .kq{font:inherit;font-size:13px;line-height:1.2;text-align:left;cursor:pointer;background:var(--sf2);border:1px solid var(--sf2);color:var(--mut);padding:12px 16px;display:flex;flex-direction:column-reverse;justify-content:flex-end}
+.chips.dk .kq::after{content:'Filtrar';order:-1;font-size:11px;color:#B94700;margin-top:2px}
+.chips.dk .kq.on::after{content:'Quitar filtro'}
+.chips.dk .kq:hover{border-color:var(--or)}
+.chips.dk .kq.on{border-color:var(--or);background:var(--o20);box-shadow:inset 0 -3px 0 var(--or)}
+.chips.dk .kq.r b{color:var(--rd)}.chips.dk .kq.o b{color:var(--ac)}
 .mono{font-variant-numeric:tabular-nums;letter-spacing:.02em}
 .fts{margin:6px 0 6px 18px;padding:0}.fts li{margin:2px 0}.fts .r{color:var(--rd)}
 .vsw{display:inline-flex;border:1.5px solid var(--ink);margin-left:auto}
@@ -783,7 +789,7 @@ const qfBtn=k=>'<button type="button" class="btn qf" data-qf="'+k+'" title="Quit
 document.addEventListener('click',e=>{
  const b=e.target.closest&&e.target.closest('[data-qf]');if(!b)return;
  const k=b.dataset.qf;FS[k]={};FQ[k]='';
- if(k==='g')delete FQ.gAdv;if(k==='i')delete FQ.iAdv;
+ if(k==='g')delete FQ.gAdv;if(k==='i')delete FQ.iAdv;if(k==='d')delete FQ.dK;
  try{V[TAB][1]()}catch(er){console.error(er)}
 });
 const segFila=(n,pares,cls)=>{const v=pares.filter(p=>p[1]!==''&&p[1]!=null);return v.length?'<tr class="seg det '+(cls||'')+'"'+(SEGA?'':' hidden')+'><td class="sg" colspan="'+n+'"><div>'+v.map(p=>'<span><i>'+esc(p[0])+'</i> '+esc(p[1])+'</span>').join('')+'</div></td></tr>':''};
@@ -1622,8 +1628,8 @@ async function rDes(){
  const rng=(rows,fi)=>{const f=rows.map(r=>fDes(fi(r))).filter(v=>/^\d{4}-\d\d-\d\d$/.test(v)).sort();return f.length?fd(f[0])+' al '+fd(f[f.length-1]):'sin fechas'};
  const fte=(t,b,txt)=>'<li><b>'+t+'</b> '+(b?esc(b.archivo)+' · '+txt:'<span class="r">sin cargar</span>')+'</li>';
  el.innerHTML='<h2 class="tt">Despachos</h2>'
-  +'<div class="chips dk"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>envíos</span>'
-  +'<span><b id="d-ok">0</b>entregados</span><span class="o"><b id="d-run">0</b>en camino</span><span class="r"><b id="d-bad">0</b>con incidencia o novedad</span><span><b id="d-nu">0</b>unidades</span><span><b id="d-nv">$ 0</b>valor declarado</span></div>'
+  +'<div class="chips dk"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><button type="button" class="kq r" data-k="nf" title="Ver solo lo que no se encontró"><b id="d-nn">0</b>no encontrados</button><span><b id="d-nd">0</b>envíos</span>'
+  +'<button type="button" class="kq" data-k="ok" title="Entregadas por la transportadora o despachadas en CAC / Almacén"><b id="d-ok">0</b>entregados</button><button type="button" class="kq o" data-k="run" title="Despachadas o en transporte, sin entregar"><b id="d-run">0</b>en camino</button><button type="button" class="kq r" data-k="bad" title="Con incidencia, novedad o Fuera de Tiempo"><b id="d-bad">0</b>con incidencia o novedad</button><span><b id="d-nu">0</b>unidades</span><span><b id="d-nv">$ 0</b>valor declarado</span></div>'
   +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><div class="est"><p>Pega pedidos (empiezan con D), garantías o reparaciones (solo números), números de guía o de remisión, o el código del distribuidor (columna Q del informe de negocios), uno por línea o separados por coma, punto y coma o espacio. Para buscar por nombre del distribuidor (columna R) escribe una o varias palabras en su propio renglón, por ejemplo “gallery tobon”: trae los envíos cuyo nombre tenga todas esas palabras, sin importar mayúsculas ni tildes. Cada uno muestra todos sus envíos, del más reciente al más antiguo. Pedidos y garantías nunca se mezclan entre sí.</p><ul class="fts">'
   +fte('Guías de despachos (fuera de Bogotá):',D.gu,D.gu?'pedido o garantía en AC/AD, guía AU, fecha de despacho AS, estado AQ, unidades BF; '+rng(D.gu.rows,r=>r[44]):'')
   +fte('DRIVE CAC & ALMACEN (Bogotá):',D.dr,D.dr?'fecha A, pedido B, estado DESPACHADO; '+rng(D.dr.rows,r=>r[0]):'')
@@ -1635,6 +1641,7 @@ async function rDes(){
   +'<div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
  const ta=$('#d-ped');ta.value=FQ.dPed||'';FQ.dVw=FQ.dVw||'c';
  let pasa=()=>true,L=[],NF=[],toks=[];
+ const KQ={ok:x=>catX(x)==='ok'||catX(x)==='cac',run:x=>catX(x)==='run',bad:x=>catX(x)==='bad'||!!(x.n&&(x.n.nov||x.n.ft))};
  const pill=x=>'<span class="pl2 '+catX(x)+'">'+esc(x.st||'Sin estado')+'</span>';
  const dias=n=>n&&n.dtra!==''&&n.dtra!=null?fnum(n.dtra,0)+(n.dofe!==''&&n.dofe!=null?' de '+fnum(n.dofe,0):'')+' días':'';
  const envio=x=>{const n=x.n||{},c=catX(x);
@@ -1649,18 +1656,22 @@ async function rDes(){
    +'<div class="dv"><span class="lb">Valor declarado</span><b>'+(n.val!==''&&n.val!=null?'$ '+fnum(n.val,0):'—')+'</b><small>'+(x.u!==''&&x.u!=null?fnum(x.u,0)+(x.u===1?' unidad':' unidades'):'')+'</small></div>'
    +(n.ft||n.nov?'<div class="dn'+(n.ft?' ft':'')+'">'+(n.ft?'<b>Fuera de Tiempo:</b> '+esc(fnum(n.dtra,0)+' días transcurridos de '+fnum(n.dofe,0)+' ofrecidos')+(n.nov?' · ':''):'')+(n.nov?'<b>Novedad:</b> '+esc(n.nov):(n.ft?' · Sin novedad reportada por la transportadora':''))+'</div>':'')+'</div>'};
  const pintar=()=>{
-  const R=L.filter(x=>pasa(x)),peds=[...new Set(R.map(x=>x.ped))];
-  const un=new Map();R.forEach(x=>{const z=x.g+'|'+x.rem+'|'+x.f;if(!un.has(z))un.set(z,x)});const U=[...un.values()];
+  const R0=L.filter(x=>pasa(x));
+  const un=new Map();R0.forEach(x=>{const z=x.g+'|'+x.rem+'|'+x.f;if(!un.has(z))un.set(z,x)});const U=[...un.values()];
   const set=(id,v)=>{$(id).textContent=v};
   set('#d-nb',fnum(toks.length,0));set('#d-ne',fnum(toks.length-NF.length,0));set('#d-nn',fnum(NF.length,0));set('#d-nd',fnum(U.length,0));
-  set('#d-ok',fnum(U.filter(x=>catX(x)==='ok'||catX(x)==='cac').length,0));set('#d-run',fnum(U.filter(x=>catX(x)==='run').length,0));
-  set('#d-bad',fnum(U.filter(x=>catX(x)==='bad'||(x.n&&(x.n.nov||x.n.ft))).length,0));
+  set('#d-ok',fnum(U.filter(KQ.ok).length,0));set('#d-run',fnum(U.filter(KQ.run).length,0));
+  set('#d-bad',fnum(U.filter(KQ.bad).length,0));
+  /* tarjetas que filtran (como en Inventarios): clic para filtrar, otro clic para quitar */
+  const K=FQ.dK||'';el.querySelectorAll('.chips.dk .kq').forEach(b=>b.classList.toggle('on',b.dataset.k===K));
+  const R=K==='nf'?[]:K&&KQ[K]?R0.filter(KQ[K]):R0,peds=[...new Set(R.map(x=>x.ped))];
   set('#d-nu',fnum(U.reduce((t,x)=>t+(typeof x.u==='number'?x.u:0),0),0));set('#d-nv','$ '+fnum(U.reduce((t,x)=>t+(x.n&&typeof x.n.val==='number'?x.n.val:0),0),0));
   $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> '+esc(NF.join(', '))+' <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
   const cp=$('#d-cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NF.join('\n'));cp.textContent='Copiado'}catch(e){}};
   el.querySelectorAll('[data-vw]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.vw===FQ.dVw));
   if(!toks.length){$('#d-t').innerHTML=vacio('Pega los pedidos, garantías o números de guía y pulsa Consultar.');return}
-  if(!R.length){$('#d-t').innerHTML=vacio(L.length?'Ningún envío coincide con los filtros.':'No se encontraron envíos para lo que pegaste.');return}
+  if(K==='nf'){$('#d-t').innerHTML=vacio(NF.length?'Arriba está la lista de lo que no se encontró. Pulsa otra vez la tarjeta “no encontrados” para volver a ver los envíos.':'Todo lo que pegaste se encontró.');return}
+  if(!R.length){$('#d-t').innerHTML=vacio(K?'Ningún envío está en “'+{ok:'entregados',run:'en camino',bad:'con incidencia o novedad'}[K]+'”.':L.length?'Ningún envío coincide con los filtros.':'No se encontraron envíos para lo que pegaste.');return}
   if(FQ.dVw==='t'){
    let t='<div class="tw"><table class="pv des"><thead><tr><th>Buscado</th><th>Tipo</th><th>Fecha de envío</th><th>Guía</th><th>Remisión</th><th>Destino</th><th>Recogida</th><th>Entrega</th><th>Estado</th><th>Eficiencia</th><th class="n">Días</th><th class="n">Unidades</th><th class="n">Valor declarado</th><th>Pedidos / garantías del envío</th><th>Origen</th></tr></thead><tbody>';
    peds.forEach(p=>R.filter(x=>x.ped===p).forEach((x,i,A)=>{const n=x.n||{};t+='<tr'+(i===0?' class="gp"':'')+'>'+(i===0?'<td rowspan="'+A.length+'"><b>'+esc(p)+'</b></td><td rowspan="'+A.length+'">'+esc(x.tipo)+'</td>':'')
@@ -1686,13 +1697,14 @@ async function rDes(){
    {n:'Con novedad',f:x=>x.n&&x.n.nov?'Sí':'No'},{n:'Origen',f:x=>x.o.replace(/ · col\. .*/,'')},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes}];
   pasa=filtros($('#d-b'),defs,L,pintar,'d');pintar();
  };
+ el.querySelectorAll('.chips.dk .kq').forEach(b=>b.onclick=()=>{FQ.dK=FQ.dK===b.dataset.k?'':b.dataset.k;pintar()});
  $('#d-go').onclick=consultar;$('#d-cl').onclick=()=>{ta.value='';FQ.dPed='';consultar();ta.focus()};
  ta.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();consultar()}};
  ta.onpaste=()=>setTimeout(consultar,0);
  el.querySelectorAll('[data-vw]').forEach(b=>b.onclick=()=>{FQ.dVw=b.dataset.vw;pintar()});
  consultar();
  $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Remisión','Destino','Destinatario','Fecha despacho','Fecha recogida','Fecha entrega','Estado de la guía','Situación','Eficiencia','Días transcurridos','Días ofrecidos','Novedad','Unidades','Valor declarado','Pedidos / garantías del envío','Origen'],
-  rows:L.filter(x=>pasa(x)).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,x.rem,n.dest||'',n.nom||'',fd(x.o===ORI_GU?x.f:(n.desp||'')),fd(n.rec||''),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
+  rows:L.filter(x=>pasa(x)&&(!FQ.dK||FQ.dK==='nf'||KQ[FQ.dK](x))).map(x=>{const n=x.n||{};return[x.ped,x.tipo,fd(x.f),x.g,x.rem,n.dest||'',n.nom||'',fd(x.o===ORI_GU?x.f:(n.desp||'')),fd(n.rec||''),fd(n.ent||''),x.st,x.sit,n.efi||'',n.dtra??'',n.dofe??'',n.nov||'',x.u,n.val??'',x.c,x.o]})},
   ...(NF.length?[{n:'No encontrados',cab:['Buscado'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
 }
 
