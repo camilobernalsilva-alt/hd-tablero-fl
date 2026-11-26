@@ -950,6 +950,8 @@ async function rFaltantes(){
  const ifp=p?p.cab.indexOf('Fecha de Llegada'):-1,eP=k=>{const q=mpi.get(k);return !!q&&ifp>=0&&String(q[ifp]).trim().toUpperCase()==='ETTES'},hP=k=>{const q=mpi.get(k);return !!q&&ifp>=0&&esHoy(q[ifp])};
  const eT=(e,v,h)=>e?'ETTES · '+(v===SIN_FECHA?SIN_FECHA:fd(v)):fd(v);
  const mk=K.map(ci),seen=new Set(),g=n=>ci(n),iAr=c.cab.indexOf('Área (col. Q)'),SIN_AREA='Sin área asignada';
+ /* Área: los pedidos ETTES van como "Importada"; una celda vacía, en 0 o con la fecha vacía de Excel (00/01/1900) queda "Sin área asignada" */
+ const areaDe=v=>{if(v instanceof Date)return v.getFullYear()<1901?SIN_AREA:fd(dk(v));const t=String(v==null?'':v).trim();return !t||/^0+([.,]0+)?$/.test(t)||/^0{1,2}\/(ene|jan|01)\/1900$/i.test(t)?SIN_AREA:t};
  const L0=c.rows.map(r=>{
   const k=key(r,mk);seen.add(k);
   const fl=rc(r),fa=mp.get(k);
@@ -958,7 +960,7 @@ async function rFaltantes(){
    resp:isE?(fl===SIN_FECHA?SIN_FECHA:fd(fl)):txt(r[g('Responsable')]),obs:isE?(fl===SIN_FECHA?SIN_FECHA:fd(fl))+(p&&fa!==undefined&&fa!==fl?' (antes '+(fa===SIN_FECHA?SIN_FECHA:fd(fa))+')':''):txt(r[g('Observaciones')]),ett:isE,fl,fa:fa===undefined?'':fa,flt:eT(isE,fl,isH),fat:fa===undefined?'':eT(eP(k),fa,hP(k)),
    est:!p?'Sin comparar':fa===undefined?'Nuevo':fa===fl?'Igual':'Cambió',
    cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',
-   ea:q.ea||'No',sub:q.sub||'No',area:(iAr>=0?String(r[iAr] instanceof Date?fd(dk(r[iAr])):r[iAr]==null?'':r[iAr]).trim():'')||SIN_AREA,ori:'Base',
+   ea:q.ea||'No',sub:q.sub||'No',area:txt(r[g('Fecha de Llegada')]).toUpperCase()==='ETTES'?'Importada':areaDe(iAr>=0?r[iAr]:''),ori:'Base',
    val:pv.has(op)?pv.get(op):(q.v||0),vk:op||ped+'-'+r[g('# Item')],
    mat:isE?'ETTES · '+(fl===SIN_FECHA?SIN_FECHA:fd(fl)):(/^\d{4}-\d\d-\d\d$/.test(fl)?fd(fl):(fl?String(fl):'Sin fecha'))};
  }).sort((x,y)=>x.pedido.localeCompare(y.pedido)||num(x.item)-num(y.item));
@@ -971,7 +973,7 @@ async function rFaltantes(){
    iD=f(/descrip|accesorio|art[ií]culo|componente|nombre|referencia/i),iN=f(/cant|consumo/i),iF=f(/fecha/i),iB=f(/observ/i),iT=f(/tama/i);
   return A.rows.map(r=>{const fv=v(r,iF);
    return{ped:String(r[5]).trim(),it:String(v(r,iI)).trim(),op:String(v(r,iO)).trim(),cod:String(v(r,iC)).trim(),cl:String(v(r,iL)).trim(),col:String(v(r,iCo)).trim(),desc:String(v(r,iD)).trim(),
-    con:num(v(r,iN)),fl:fv instanceof Date?dk(fv):esHoy(fv)?refA:String(fv).trim(),obs:String(v(r,iB)).trim(),area:String(r[15] instanceof Date?fd(dk(r[15])):r[15]==null?'':r[15]).trim()   /* Área: columna P de la hoja Accesorios */,tam:String(v(r,iT)).trim()}});
+    con:num(v(r,iN)),fl:fv instanceof Date?dk(fv):esHoy(fv)?refA:String(fv).trim(),obs:String(v(r,iB)).trim(),area:r[15]   /* Área: columna P de la hoja Accesorios */,tam:String(v(r,iT)).trim()}});
  };
  const AC=accDe(c.acc,refC),APm=new Map(),kAc=y=>y.ped+'|'+y.it+'|'+y.cod+'|'+y.desc;
  if(p&&p.acc)accDe(p.acc,refP).forEach(y=>APm.set(kAc(y),y.fl));
@@ -982,7 +984,7 @@ async function rFaltantes(){
   L0.push({pedido:y.ped,item:y.it,op,art:[y.desc,y.cod,y.cl,y.col].filter(Boolean).join('-')||'Accesorio',cc:y.cod,tam:y.tam,cl:y.cl,comp:y.desc,con:y.con,dist:a.dist||(pe?'No está en Pending':''),
    resp:'',obs:y.obs,ett:false,fl,fa:fa===undefined?'':fa,flt:fd(fl),fat:fa===undefined?'':fd(fa),
    est:!(p&&p.acc)?'Sin comparar':fa===undefined?'Nuevo':fa===fl?'Igual':'Cambió',
-   cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',ea:q.ea||'No',sub:q.sub||'No',area:y.area||SIN_AREA,ori:'Accesorios',
+   cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',ea:q.ea||'No',sub:q.sub||'No',area:areaDe(y.area),ori:'Accesorios',
    val:op&&pv.has(op)?pv.get(op):(y.it?q.v||0:0),vk:op||y.ped+'-'+(y.it||'acc')+'-'+(y.cod||y.desc),
    mat:/^\d{4}-\d\d-\d\d$/.test(fl)?fd(fl):(fl||'Sin fecha')});
  }
