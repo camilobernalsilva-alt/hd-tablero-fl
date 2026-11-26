@@ -1477,34 +1477,37 @@ async function rGar(){
    Guías de despachos (fuera de Bogotá): el pedido o la garantía está en las columnas AC o AD (y en las columnas cuyo encabezado diga "pedido"),
    la guía en la columna AU y la fecha en "Fecha despacho". DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B.
    No depende de Pending: sirve para cualquier mes que esté en los archivos cargados. */
-const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',T_GAR='Garantía / Reparación';
+const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',T_GAR='Garantía / Reparación',T_ENV='Número de envío';
 const kPed=v=>String(v==null?'':v).replace(/\s+/g,'').toUpperCase().replace(/\.0+$/,'');
 const dig5=v=>String(v==null?'':v).match(/\d{5,}/g)||[];
 const fDes=v=>{if(v instanceof Date)return dk(v);if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10)}
  const t=String(v==null?'':v).trim(),m=t.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);if(m)return(m[3].length===2?'20'+m[3]:m[3])+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');return/^\d{4}-\d\d-\d\d/.test(t)?t.slice(0,10):t};
 async function datosDes(){
  const [gu,dr]=await Promise.all([get('guias'),get('drive')]);
- const ex=new Map(),nu=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}a.push(e)};
+ const ex=new Map(),nu=new Map(),gi=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}a.push(e)};
  /* El índice por número solo toma valores que no son pedidos (los pedidos tipo D170246 se buscan siempre exactos), así una garantía 170246 nunca trae el pedido D170246 */
  const esPed=v=>/^[A-Z]{1,3}-?\d{4,}$/.test(kPed(v));
  const meter=(v,e)=>{if(v==null||v==='')return;add(ex,kPed(v),e);if(!esPed(v))dig5(v).forEach(d=>add(nu,d,e))};
  if(gu){const c=gu.cab.map(x=>String(x));let iF=c.indexOf('Fecha despacho');if(iF<0)iF=c.findIndex(h=>/fecha.*desp/i.test(h));
   const cols=[28,29,...c.map((h,i)=>/pedido/i.test(h)&&i!==28&&i!==29?i:-1).filter(i=>i>=0)];
-  for(const r of gu.rows){const e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU};cols.forEach(i=>meter(r[i],e))}
+  for(const r of gu.rows){const c=[...new Set(cols.map(i=>nrm(r[i])).filter(Boolean))].join(', ')||[...new Set(r.flatMap(v=>String(v==null?'':v).toUpperCase().match(/\bD\d{5,}\b/g)||[]))].join(', '),e={f:fDes(r[iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU,c};cols.forEach(i=>meter(r[i],e));
+   /* número de envío (guía, columna AU): también se puede buscar */
+   if(nrm(r[46]))add(gi,kPed(r[46]),e)}
   gu._iF=iF}
- if(dr)for(const r of dr.rows)meter(r[1],{f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR});
+ if(dr)for(const r of dr.rows)meter(r[1],{f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR,c:nrm(r[1])});
  /* Respaldo: si no aparece en las columnas de siempre, se busca en TODAS las columnas de los dos archivos (celda igual o que contenga el pedido)
     y se indica la letra de la columna donde apareció */
  const letra=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
  const enTodo=t=>{const k=kPed(t),out=[];if(k.length<4)return out;
   const pt=esPed(t),hit=v=>{if(v==null||v==='')return false;const c=kPed(v);if(c===k)return true;if(k.length<6||!c.includes(k))return false;return pt||!esPed(v)};
-  if(gu)for(const r of gu.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[gu._iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU+' · col. '+letra(i)});break}}
-  if(dr)for(const r of dr.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR+' · col. '+letra(i)});break}}
+  if(gu)for(const r of gu.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[gu._iF]),g:nrm(r[46])||'(sin guía)',o:ORI_GU+' · col. '+letra(i),c:nrm(r[i])});break}}
+  if(dr)for(const r of dr.rows){for(let i=0;i<r.length;i++)if(hit(r[i])){out.push({f:fDes(r[0]),g:'Entrega CAC / Almacén',o:ORI_DR+' · col. '+letra(i),c:nrm(r[1])});break}}
   return out};
  /* búsqueda: primero el valor exacto; si no aparece, el número (así 148054 encuentra "GAR-148054"); si tampoco, en todas las columnas */
- const buscar=t=>{const k=kPed(t);let a=ex.get(k);if((!a||!a.length)&&!esPed(t)){const d=dig5(t);a=d.length?[].concat(...d.map(x=>nu.get(x)||[])):[]}
-  if(!a||!a.length)a=enTodo(t);
-  const vis=new Set();return a.filter(e=>{const z=e.f+'|'+e.g+'|'+e.o;if(vis.has(z))return false;vis.add(z);return true}).sort((p,q)=>String(q.f).localeCompare(String(p.f)))};
+ const buscar=t=>{const k=kPed(t),G=(gi.get(k)||[]).map(e=>({...e,tp:T_ENV}));let a=ex.get(k);if((!a||!a.length)&&!esPed(t)){const d=dig5(t);a=d.length?[].concat(...d.map(x=>nu.get(x)||[])):[]}
+  if((!a||!a.length)&&!G.length)a=enTodo(t);
+  const tp=esPed(t)?'Pedido':T_GAR;a=[...G,...(a||[]).map(e=>({...e,tp}))];
+  const vis=new Set();return a.filter(e=>{const z=e.f+'|'+e.g+'|'+e.o+'|'+e.tp;if(vis.has(z))return false;vis.add(z);return true}).sort((p,q)=>String(q.f).localeCompare(String(p.f)))};
  return{gu,dr,buscar};
 }
 async function rDes(){
@@ -1512,10 +1515,10 @@ async function rDes(){
  if(!D.gu&&!D.dr){el.innerHTML='<h2 class="tt">Despachos</h2>'+vacio('Todavía no hay datos de despachos. Carga los archivos de Guías de despachos y DRIVE CAC & ALMACEN en la pestaña Carga.');return}
  const rng=A=>{const f=A.flatMap(x=>x.rows.map(r=>fDes(x===D.dr?r[0]:r[x.cab.indexOf('Fecha despacho')]))).filter(v=>/^\d{4}-\d\d-\d\d$/.test(v)).sort();return f.length?fd(f[0])+' al '+fd(f[f.length-1]):'sin fechas'};
  el.innerHTML='<h2 class="tt">Despachos</h2><div class="chips"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>despachos</span></div>'
-  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Pega uno o varios pedidos o garantías (uno por línea, o separados por coma, punto y coma o espacio). Por cada uno se listan todas las fechas de envío que aparecen, de la más nueva a la más antigua, con su número de guía. '
+  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Pega uno o varios pedidos, garantías o números de envío (uno por línea, o separados por coma, punto y coma o espacio). Por cada uno se listan todas las fechas de envío que aparecen, de la más nueva a la más antigua, con su número de guía. '
   +'Guías de despachos (envíos fuera de Bogotá): el pedido o la garantía se busca en las columnas AC y AD, la guía es la columna AU y la fecha la columna “Fecha despacho”'+(D.gu?' ('+esc(D.gu.archivo)+', '+rng([D.gu])+')':' (sin cargar)')+'. '
-  +'DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B'+(D.dr?' ('+esc(D.dr.archivo)+', '+rng([D.dr])+')':' (sin cargar)')+'. Las garantías y reparaciones son los números de 6 dígitos. Si el valor exacto no aparece, se busca por el número (por ejemplo, 148054 encuentra “GAR-148054”). No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></details>'
-  +'<div class="desq"><label class="fld"><span>Pedidos o garantías a consultar</span><textarea id="d-ped" rows="4" spellcheck="false" placeholder="Pega aquí los pedidos o garantías, por ejemplo:&#10;PV-0123456&#10;148054"></textarea></label>'
+  +'DRIVE CAC & ALMACEN: fecha en la columna A y pedido en la B'+(D.dr?' ('+esc(D.dr.archivo)+', '+rng([D.dr])+')':' (sin cargar)')+'. Los pedidos empiezan con D y las garantías y reparaciones son solo números; nunca se mezclan entre sí. También puedes pegar un número de envío (guía, columna AU): se muestra la fecha y los pedidos o garantías que van en ese envío. Si el valor exacto no aparece, se busca por el número (por ejemplo, 148054 encuentra “GAR-148054”). No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></details>'
+  +'<div class="desq"><label class="fld"><span>Pedidos, garantías o números de envío a consultar</span><textarea id="d-ped" rows="4" spellcheck="false" placeholder="Pega aquí los pedidos (con D), garantías o números de envío, por ejemplo:&#10;D170246&#10;148054"></textarea></label>'
   +'<div class="acts"><button type="button" class="btn" id="d-go">Consultar</button><button type="button" class="btn sec" id="d-cl">Limpiar lista</button></div></div>'
   +'<div class="filtros">'+qfBtn('d')+'<button type="button" class="btn ex" id="d-x">Exportar a Excel</button></div><div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
  const ta=$('#d-ped');ta.value=FQ.dPed||'';
@@ -1526,12 +1529,12 @@ async function rDes(){
   $('#d-nb').textContent=toks.length.toLocaleString('es-CO');$('#d-ne').textContent=(toks.length-NF.length).toLocaleString('es-CO');$('#d-nn').textContent=NF.length.toLocaleString('es-CO');$('#d-nd').textContent=R.length.toLocaleString('es-CO');
   $('#d-nf').innerHTML=NF.length?'<div class="sc"><b>No encontrados ('+NF.length+'):</b> <span id="d-nfl">'+esc(NF.join(', '))+'</span> <button type="button" class="lm" id="d-cp">Copiar</button></div>':'';
   const cp=$('#d-cp');if(cp)cp.onclick=()=>{try{navigator.clipboard.writeText(NF.join('\n'));cp.textContent='Copiado'}catch(e){}};
-  if(!toks.length){$('#d-t').innerHTML=vacio('Pega los pedidos o garantías y pulsa Consultar.');return}
+  if(!toks.length){$('#d-t').innerHTML=vacio('Pega los pedidos, garantías o números de envío y pulsa Consultar.');return}
   if(!R.length){$('#d-t').innerHTML=vacio(L.length?'Ningún despacho coincide con los filtros.':'No se encontraron despachos para esos pedidos.');return}
-  let t='<div class="tw"><table class="pv des"><thead><tr><th>Pedido / garantía</th><th>Tipo</th><th class="n">Envíos</th><th>Fecha de envío</th><th>Número de guía</th><th>Origen</th></tr></thead><tbody>';
+  let t='<div class="tw"><table class="pv des"><thead><tr><th>Buscado</th><th>Tipo</th><th class="n">Envíos</th><th>Fecha de envío</th><th>Número de guía</th><th>Pedidos / garantías del envío</th><th>Origen</th></tr></thead><tbody>';
   peds.forEach(p=>{const A=R.filter(x=>x.ped===p);
    A.forEach((x,i)=>{t+='<tr'+(i===0?' class="gp"':'')+'>'+(i===0?'<td rowspan="'+A.length+'"><b>'+esc(p)+'</b></td><td rowspan="'+A.length+'">'+esc(x.tipo)+'</td><td class="n" rowspan="'+A.length+'">'+A.length+'</td>':'')
-    +'<td>'+esc(fd(x.f))+(i===0&&A.length>1?' <span class="sb">más reciente</span>':'')+'</td><td>'+esc(x.g)+'</td><td>'+esc(x.o)+'</td></tr>'})});
+    +'<td>'+esc(fd(x.f))+(i===0&&A.length>1?' <span class="sb">más reciente</span>':'')+'</td><td>'+esc(x.g)+'</td><td class="wr">'+esc(x.c)+'</td><td>'+esc(x.o)+'</td></tr>'})});
   $('#d-t').innerHTML=t+'</tbody></table></div>';
  };
  const consultar=()=>{
@@ -1539,7 +1542,7 @@ async function rDes(){
   const vis=new Set();toks=ta.value.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x&&!vis.has(kPed(x))&&vis.add(kPed(x)));
   L=[];NF=[];
   for(const t of toks){const A=D.buscar(t);if(!A.length){NF.push(t);continue}
-   const tipo=/^\d{5,7}$/.test(kPed(t))?T_GAR:'Pedido';A.forEach(e=>L.push({ped:t,tipo,f:e.f,g:e.g,o:e.o,mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
+   A.forEach(e=>L.push({ped:t,tipo:e.tp,c:e.c||'',f:e.f,g:e.g,o:e.o,mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
   const defs=[{n:'Origen',f:x=>x.o},{n:'Tipo',f:x=>x.tipo},{n:'Mes de envío',f:x=>x.mes,porMes:true},{n:'Número de guía',f:x=>x.g}];
   pasa=filtros($('#d-b'),defs,L,pintar,'d');pintar();
  };
@@ -1547,8 +1550,8 @@ async function rDes(){
  ta.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();consultar()}};
  ta.onpaste=()=>setTimeout(consultar,0);
  consultar();
- $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Pedido / garantía','Tipo','Fecha de envío','Número de guía','Origen'],rows:L.filter(x=>pasa(x)).map(x=>[x.ped,x.tipo,fd(x.f),x.g,x.o])},
-  ...(NF.length?[{n:'No encontrados',cab:['Pedido / garantía'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
+ $('#d-x').onclick=()=>exportar('Despachos',[{n:'Despachos',cab:['Buscado','Tipo','Fecha de envío','Número de guía','Pedidos / garantías del envío','Origen'],rows:L.filter(x=>pasa(x)).map(x=>[x.ped,x.tipo,fd(x.f),x.g,x.c,x.o])},
+  ...(NF.length?[{n:'No encontrados',cab:['Buscado'],rows:NF.map(x=>[x])}]:[]),hojaFiltros(pasa,'')]);
 }
 
 /* ===== Inventarios (versión 41) ===== */
