@@ -1546,7 +1546,9 @@ async function rGar(){
      Si la guía está en el archivo de Guías se completa ese mismo envío; si no, es un envío más de la transportadora.
    No depende de Pending: sirve para cualquier mes que esté en los archivos cargados. */
 const uniDe=v=>{if(v==null||v==='')return'';const n=typeof v==='number'?v:Number(String(v).replace(/\./g,'').replace(',','.'));return isNaN(n)?'':n};
-const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',ORI_TR='Transportadora',T_GAR='Garantía / Reparación',T_ENV='Número de envío';
+const ORI_GU='Guía (fuera de Bogotá)',ORI_DR='CAC / Almacén',ORI_TR='Transportadora',T_GAR='Garantía / Reparación',T_ENV='Número de envío',T_DIS='Distribuidor',T_COD='Código de distribuidor';
+/* texto para buscar por palabras: mayúsculas, sin tildes ni signos */
+const nPal=v=>String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9Ñ]+/g,' ').trim();
 /* Estado para colores y conteos: "DESPACHADO" solo es entregado en CAC/Almacén; en guías fuera de Bogotá significa en camino */
 const catX=x=>{const c=catEst(x.st);return c==='cac'&&x.o!==ORI_DR?'run':c};
 const kPed=v=>String(v==null?'':v).replace(/\s+/g,'').toUpperCase().replace(/\.0+$/,'');
@@ -1559,7 +1561,7 @@ const catEst=s=>{const t=String(s||'').toUpperCase();return/ENTREGAD/.test(t)?'o
 const SIT={ok:'Entregada',run:'En camino',bad:'Con incidencia',cac:'Despachado (Bogotá)',na:'Sin estado'};
 async function datosDes(){
  const [gu,dr,ng]=await Promise.all([get('guias'),get('drive'),get('negocios')]);
- const ex=new Map(),nu=new Map(),gi=new Map(),rm=new Map(),add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}if(!a.includes(e))a.push(e)};
+ const ex=new Map(),nu=new Map(),gi=new Map(),rm=new Map(),cod=new Map(),neE=[],add=(M,k,e)=>{if(!k)return;let a=M.get(k);if(!a){a=[];M.set(k,a)}if(!a.includes(e))a.push(e)};
  /* El índice por número solo toma valores que no son pedidos: una garantía 170246 nunca trae el pedido D170246 */
  /* Un texto como "D169767 -4" o "Ped D169932 / caja 2" se indexa también por el pedido D que contiene; los números sueltos solo si no son parte de un pedido D */
  const meter=(v,e)=>{if(v==null||v==='')return;const t=String(v).toUpperCase();add(ex,kPed(v),e);(t.match(/D\d{5,}/g)||[]).forEach(d=>add(ex,d,e));
@@ -1584,12 +1586,14 @@ async function datosDes(){
     dofe:v('dofe')===''?'':num(v('dofe')),dtra:v('dtra')===''?'':num(v('dtra')),nov:nrm(v('nov')),efi:nrm(v('efi'))};
    /* Fuera de Tiempo: días transcurridos (AC) mayores que los ofrecidos (AB) */
    n.ft=n.dtra!==''&&n.dofe!==''&&n.dtra>n.dofe;n.efiT=n.efi;if(n.ft)n.efi='Fuera de Tiempo';
-   const q=nrm(v('nit')),refs=[...new Set([nrm(v('doc')),nrm(v('obs')),...(esPedV(q)||/^\d{6}$/.test(q)?[q]:[])].filter(Boolean))];
+   /* Q = código del distribuidor (no se mezcla con garantías); R = nombre del distribuidor */
+   const q=nrm(v('nit')),refs=[...new Set([nrm(v('doc')),nrm(v('obs')),...(esPedV(q)?[q]:[])].filter(Boolean))];
+   n.nit=q;n.pal=nPal(n.nom);
    /* cruce: columna A del informe de negocios = guía AU del archivo de Guías */
    let E=gi.get(kg);
    if(E&&E.length)E.forEach(e=>{e.n=n;e.st=nrm(v('est'))||e.st;if(e.u==='')e.u=uniDe(v('uni'));if(!e.c)e.c=refs.join(', ')});
    else{const e={f:n.rec||n.desp,g:nrm(v('guia')),rem:'',o:ORI_TR,c:refs.join(', '),u:uniDe(v('uni')),st:nrm(v('est'))||'Sin estado',n};add(gi,kg,e);E=[e]}
-   E.forEach(e=>refs.forEach(x=>meter(x,e)));
+   E.forEach(e=>{refs.forEach(x=>meter(x,e));neE.push(e);if(q)add(cod,kPed(q),e)});
   }}
  /* Respaldo: si no aparece en las columnas de siempre, se busca en TODAS las columnas de Guías y DRIVE y se indica la letra */
  const letra=i=>{let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=Math.floor((i-1)/26)}return s};
@@ -1604,8 +1608,13 @@ async function datosDes(){
   if(!a.length&&!G.length)a=enTodo(t);
   const tp=esPedV(t)?'Pedido':T_GAR,vis=new Set(),out=[];
   G.forEach(e=>{if(!vis.has(e)){vis.add(e);out.push({e,tp:T_ENV})}});a.forEach(e=>{if(!vis.has(e)){vis.add(e);out.push({e,tp})}});
+  (cod.get(k)||[]).forEach(e=>{if(!vis.has(e)){vis.add(e);out.push({e,tp:T_COD})}});
   return out.sort((p,q)=>String(q.e.f).localeCompare(String(p.e.f)))};
- return{gu,dr,ng,buscar};
+ /* búsqueda por palabras en el nombre del distribuidor (columna R del informe de negocios): deben estar todas las palabras */
+ const porNombre=f=>{const W=nPal(f).split(' ').filter(Boolean);if(!W.length)return[];
+  return neE.filter(e=>{const p=' '+e.n.pal+' ';return W.every(w=>p.includes(w))}).map(e=>({e,tp:T_DIS}))
+   .sort((p,q)=>String(q.e.f).localeCompare(String(p.e.f)))};
+ return{gu,dr,ng,buscar,porNombre};
 }
 async function rDes(){
  const el=$('#des'),D=await datosDes();
@@ -1615,12 +1624,12 @@ async function rDes(){
  el.innerHTML='<h2 class="tt">Despachos</h2>'
   +'<div class="chips dk"><span><b id="d-nb">0</b>buscados</span><span><b id="d-ne">0</b>encontrados</span><span class="r"><b id="d-nn">0</b>no encontrados</span><span><b id="d-nd">0</b>envíos</span>'
   +'<span><b id="d-ok">0</b>entregados</span><span class="o"><b id="d-run">0</b>en camino</span><span class="r"><b id="d-bad">0</b>con incidencia o novedad</span><span><b id="d-nu">0</b>unidades</span><span><b id="d-nv">$ 0</b>valor declarado</span></div>'
-  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><div class="est"><p>Pega pedidos (empiezan con D), garantías o reparaciones (solo números), números de guía o de remisión, uno por línea o separados por coma, punto y coma o espacio. Cada uno muestra todos sus envíos, del más reciente al más antiguo. Pedidos y garantías nunca se mezclan entre sí.</p><ul class="fts">'
+  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><div class="est"><p>Pega pedidos (empiezan con D), garantías o reparaciones (solo números), números de guía o de remisión, o el código del distribuidor (columna Q del informe de negocios), uno por línea o separados por coma, punto y coma o espacio. Para buscar por nombre del distribuidor (columna R) escribe una o varias palabras en su propio renglón, por ejemplo “gallery tobon”: trae los envíos cuyo nombre tenga todas esas palabras, sin importar mayúsculas ni tildes. Cada uno muestra todos sus envíos, del más reciente al más antiguo. Pedidos y garantías nunca se mezclan entre sí.</p><ul class="fts">'
   +fte('Guías de despachos (fuera de Bogotá):',D.gu,D.gu?'pedido o garantía en AC/AD, guía AU, fecha de despacho AS, estado AQ, unidades BF; '+rng(D.gu.rows,r=>r[44]):'')
   +fte('DRIVE CAC & ALMACEN (Bogotá):',D.dr,D.dr?'fecha A, pedido B, estado DESPACHADO; '+rng(D.dr.rows,r=>r[0]):'')
-  +fte('Informe de negocios (transportadora):',D.ng,D.ng?'guía A (= AU de Guías), pedido o garantía en D, AV y Q, destino H, recogida J, entrega M, valor declarado Z, estado AA, eficiencia AE y novedad AD; '+rng(D.ng.rows,r=>r[4]):'')
+  +fte('Informe de negocios (transportadora):',D.ng,D.ng?'guía A (= AU de Guías), pedido o garantía en D y AV, código del distribuidor Q, nombre R, destino H, recogida J, entrega M, valor declarado Z, estado AA, eficiencia AE y novedad AD; '+rng(D.ng.rows,r=>r[4]):'')
   +'</ul><p>La guía es siempre la columna AU del archivo de Guías. El informe de negocios se cruza por la guía (su columna A con la columna AU de Guías) y completa ese envío con destino, fechas, valor y estado de la transportadora; si la guía no está en el archivo de Guías, el envío aparece igual con los datos de la transportadora. Si un pedido no aparece en las columnas de siempre, se busca en todas las columnas de Guías y DRIVE y en Origen se indica la letra. No depende de Pending: sirve para meses anteriores mientras estén en los archivos cargados.</p></div></details>'
-  +'<div class="desq"><label class="fld"><span>Pedidos, garantías o números de guía a consultar</span><textarea id="d-ped" rows="3" spellcheck="false" placeholder="Pega aquí los pedidos (con D), garantías o números de guía, por ejemplo:&#10;D170246&#10;148054"></textarea></label>'
+  +'<div class="desq"><label class="fld"><span>Pedidos, garantías, números de guía, código o nombre del distribuidor a consultar</span><textarea id="d-ped" rows="3" spellcheck="false"></textarea></label>'
   +'<div class="acts"><button type="button" class="btn" id="d-go">Consultar</button><button type="button" class="btn sec" id="d-cl">Limpiar lista</button></div></div>'
   +'<div class="filtros">'+qfBtn('d')+'<div class="vsw" role="group" aria-label="Vista"><button type="button" data-vw="c">Tarjetas</button><button type="button" data-vw="t">Tabla</button></div><button type="button" class="btn ex" id="d-x">Exportar a Excel</button></div>'
   +'<div class="fbar" id="d-b"></div><div id="d-nf"></div><div id="d-t"></div>';
@@ -1663,9 +1672,14 @@ async function rDes(){
  };
  const consultar=()=>{
   FQ.dPed=ta.value;
-  const vis=new Set();toks=ta.value.split(/[\s,;]+/).map(x=>x.trim()).filter(x=>x&&!vis.has(kPed(x))&&vis.add(kPed(x)));
+  /* cada renglón: los valores con números son pedidos, garantías, guías o códigos; las palabras sin números forman una búsqueda por nombre del distribuidor */
+  const vis=new Set(),Q=[];
+  ta.value.split(/\n|;/).forEach(l=>{const w=l.split(/[\s,]+/).map(x=>x.trim()).filter(Boolean),pal=w.filter(x=>!/\d/.test(x)).join(' ');
+   w.filter(x=>/\d/.test(x)).forEach(x=>{const k=kPed(x);if(!vis.has(k)){vis.add(k);Q.push([x,0])}});
+   const kp='N:'+nPal(pal);if(nPal(pal).length>=3&&!vis.has(kp)){vis.add(kp);Q.push([pal,1])}});
+  toks=Q.map(q=>q[0]);
   L=[];NF=[];
-  for(const t of toks){const A=D.buscar(t);if(!A.length){NF.push(t);continue}
+  for(const [t,nom] of Q){const A=nom?D.porNombre(t):D.buscar(t);if(!A.length){NF.push(t);continue}
    A.forEach(({e,tp})=>L.push({ped:t,tipo:tp,f:e.f,g:e.g,rem:e.rem||'',o:e.o,c:e.c||'',u:e.u==null?'':e.u,st:e.st||'',n:e.n,sit:SIT[catX(e)],
     mes:/^\d{4}-\d\d/.test(e.f)?MESN[+e.f.slice(5,7)-1]+' '+e.f.slice(0,4):'Sin fecha'}))}
   const defs=[{n:'Situación',f:x=>x.sit},{n:'Estado de la guía',f:x=>x.st},{n:'Eficiencia',f:x=>x.n&&x.n.efi||'(sin dato)'},{n:'Destino',f:x=>x.n&&x.n.dest||(x.o===ORI_DR?'Bogotá · CAC / Almacén':'(sin dato)')},
