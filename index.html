@@ -751,7 +751,7 @@ async function cargarDespachos(i,files){
    let d=null;try{d=await leer(f,b)}catch(e){d=null}
    if(d){await put('guias',{...base,cab:d.cab,rows:d.rows,n:d.rows.length});res.push('Guías de despachos: '+d.rows.length.toLocaleString('es-CO')+' filas ('+f.name+')');continue}
    const dr=await driveLeer(f);
-   await put('drive',{...base,cab:dr.cab,rows:dr.rows,n:dr.rows.length});res.push('DRIVE CAC & ALMACEN: '+dr.rows.length.toLocaleString('es-CO')+' filas ('+f.name+')');
+   await put('drive',{...base,cab:dr.cab,rows:dr.rows,n:dr.rows.length});res.push('DRIVE CAC & ALMACEN: '+dr.rows.length.toLocaleString('es-CO')+' filas de la hoja “'+dr.hoja+'” ('+f.name+')');
   }catch(e){err=true;res.push(f.name+': '+(e.message||String(e)))}
  }
  i.value='';await rCarga();
@@ -773,14 +773,22 @@ async function negLeer(f){
  }
  return null;
 }
+/* DRIVE CAC & ALMACEN: libro con muchas hojas. Se usa la hoja "DESPACHOS" (fecha en A, pedido en B); si no existe, la hoja
+   con más filas de fecha + pedido. Solo se leen las columnas A y B, y para elegir la hoja solo las primeras 300 filas
+   (algunas hojas del libro declaran un rango de un millón de filas). */
 async function driveLeer(f){
  const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true,dense:true});
- const nom=wb.SheetNames.find(n=>/drive|cac|almac/i.test(n))||wb.SheetNames[0];
- const F=XLSX.utils.sheet_to_json(wb.Sheets[nom],{header:1,raw:true,defval:'',blankrows:false});
  const pareceFecha=v=>v instanceof Date||/^\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}/.test(String(v).trim())||/^\d{4}-\d\d-\d\d/.test(String(v).trim());
- const rows=F.filter(r=>String(r[1]==null?'':r[1]).trim()!==''&&pareceFecha(r[0])).map(r=>[r[0],r[1]]);
- if(!rows.length)throw new Error('No reconocí el archivo: no es Guías de despachos (columnas Id remision y Fecha despacho) ni DRIVE CAC & ALMACEN (fecha en la columna A y pedido en la B).');
- return{cab:['Fecha','Pedido'],rows};
+ const pareceDoc=v=>/^\s*(D|PV|F|G-?|R-?)?\s*\d{5,}/i.test(String(v==null?'':v));
+ const leerAB=(ws,max)=>{if(!ws||!ws['!ref'])return[];const R=XLSX.utils.decode_range(ws['!ref']);R.s.c=0;R.e.c=Math.min(R.e.c,1);if(max)R.e.r=Math.min(R.e.r,R.s.r+max);
+  return XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:'',blankrows:false,range:R})};
+ const filas=F=>F.filter(r=>String(r[1]==null?'':r[1]).trim()!==''&&pareceFecha(r[0]));
+ const puntos=n=>filas(leerAB(wb.Sheets[n],300)).filter(r=>pareceDoc(r[1])).length;
+ const fija=wb.SheetNames.find(n=>n.trim().toUpperCase()==='DESPACHOS'&&puntos(n)>0)||wb.SheetNames.find(n=>/drive|cac|almac/i.test(n)&&puntos(n)>0);
+ const nom=fija||wb.SheetNames.map(n=>[n,puntos(n)]).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).map(x=>x[0])[0];
+ const rows=nom?filas(leerAB(wb.Sheets[nom])).map(r=>[r[0],r[1]]):[];
+ if(!rows.length)throw new Error('No reconocí el archivo: no es Guías de despachos (columnas Id remision y Fecha despacho) ni DRIVE CAC & ALMACEN (ninguna hoja tiene fecha en la columna A y pedido en la B).');
+ return{cab:['Fecha','Pedido'],rows,hoja:nom};
 }
 /* Segunda línea: igual que en Análisis Pending, cada fila se abre con ⊞ y muestra los campos de los filtros; el botón de arriba abre o cierra todas */
 let SEGA=false;
