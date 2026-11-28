@@ -394,13 +394,35 @@ tr.seg.rojo td{color:var(--rd)}tr.seg.nuevo td{color:var(--am)}
 .btn.sgb{min-height:38px}
 @media(max-width:700px){tr.seg td.sg>div{max-width:calc(100vw - 56px)}}
 /* Garantías: columnas de ancho fijo, el distribuidor toma el espacio sobrante y todas las filas miden igual */
-table.pv.gar{table-layout:fixed;width:100%;min-width:1100px}
+table.pv.gar{table-layout:fixed;width:100%;min-width:1140px}
 table.pv.gar td,table.pv.gar th{overflow:hidden;text-overflow:ellipsis}
 table.pv.gar th{white-space:normal;line-height:1.2;vertical-align:middle}
-table.pv.gar td:nth-child(2){min-width:0;white-space:nowrap}
+table.pv.gar td:nth-child(3){min-width:0;white-space:nowrap}
 table.pv.gar td.dn{white-space:nowrap}
 table.pv.gar td.agt{white-space:nowrap}
 table.pv.gar tr.det td.wr{white-space:normal;max-width:none;overflow:visible}
+/* Seguimiento de garantías (v49) */
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+table.pv.gar td.cbg{text-align:center;padding-left:4px;padding-right:4px}
+.gcb{width:16px;height:16px;accent-color:var(--or);cursor:pointer;margin:0;vertical-align:middle}
+table.pv.gar td.sge{overflow:visible;white-space:nowrap;padding-top:3px;padding-bottom:3px}
+.gfd{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--or);background:#fff;color:var(--ink);width:118px}
+.gsv,.gsx{font:inherit;font-size:12px;font-weight:700;border:1px solid var(--ln);background:#fff;color:var(--ink);padding:2px 6px;margin-left:3px;cursor:pointer}
+.gsv{background:var(--or);border-color:var(--or)}
+.sgt{display:inline-block;padding:1px 7px;font-size:12px;font-weight:700;white-space:nowrap;line-height:1.4}
+.sgt.vc{background:#F7E1E4;color:var(--rd)}.sgt.vh{background:#fff;color:var(--ac);border:1px solid var(--or);padding:0 6px}
+.sgt.ep{color:var(--mut);font-weight:400}.sgt.rz{background:var(--sf2);color:#3E474D}
+.sgt.sh{background:var(--or);color:var(--ink)}.sgt.gs{background:#E3F1E8;color:var(--ok)}.sgt.sc{color:#8A949B;font-weight:400}
+@keyframes segtit{0%,100%{background:transparent}50%{background:#FFD9A8}}
+table.pv.gar tr.segb td{animation:segtit 1.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){table.pv.gar tr.segb td{animation:none;background:#FFD9A8}}
+.segk{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:0 0 12px}
+.segk:empty{display:none}.segk>p{grid-column:1/-1;margin:0}
+.segk .sk{font:inherit;text-align:left;background:var(--sf);border:1px solid var(--ln);padding:9px 14px;display:flex;flex-direction:column;gap:2px;color:var(--mut);font-size:13px;cursor:pointer}
+.segk .sk b{font-size:22px;color:var(--ink);line-height:1.1}.segk .sk b small{font-size:12px;color:var(--mut);font-weight:400}
+.segk .sk.r b{color:var(--rd)}.segk .sk.o b{color:var(--ac)}
+.segk .sk:hover{border-color:var(--mut)}.segk .sk.on{border-color:var(--or);box-shadow:inset 0 0 0 1px var(--or)}
+.segk .skb{display:block;height:4px;background:var(--ln);margin-top:4px}.segk .skb i{display:block;height:4px;background:var(--hd)}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* Equipo: ingreso, perfil, administración */
@@ -1372,6 +1394,71 @@ function habiles(ini,fin){
 }
 /* Resaltado en naranja: Transferida con 2 o más días hábiles, Enviar accesorios con 4 o más, En planta y Atender en obra con 5 o más */
 const alertaGar=(est,dias)=>{if(dias==='')return false;const e=est.toLowerCase();return e==='transferida'&&dias>=2||e==='enviar accesorios'&&dias>=4||(e==='en planta'||e==='atender en obra')&&dias>=5||e==='respuesta cliente'&&dias>30};
+/* ===== Seguimiento de garantías (Etapa 2): casilla "Gestionada" + fecha de seguimiento, por garantía y estado =====
+   Plazo en días hábiles desde FechaEstado: el día del plazo "vence hoy" y después queda "vencida".
+   Rezago inicial: lo que ya estaba vencido el día de arranque (SEG_INI); va en su tarjeta y no cuenta como vencida del día.
+   Al marcar se guarda una fila en Gestion_Garantias; al llegar la fecha de seguimiento la fila titila hasta que se vuelva a gestionar
+   o la garantía cambie de estado. */
+const SEG_INI='2026-11-27';
+const PLAZO_G={'transferida':2,'confirmar con el cliente':2,'aprobada':3,'entrega a despacho':2,'enviar accesorios':4,'en planta':5,'atender en obra':5,'respuesta cliente':30};
+const plazoGar=(est,gu)=>{const e=nrm(est).toLowerCase();if(e==='entrega a despacho'&&gu)return null;return e in PLAZO_G?PLAZO_G[e]:null};
+const hoyK=()=>new Date().toLocaleDateString('en-CA');
+const esHabil=d=>{const w=d.getDay();return w!==0&&w!==6&&!festivos(d.getFullYear()).has(d.toLocaleDateString('en-CA'))};
+/* La fecha (aaaa-mm-dd) n días hábiles después de k */
+function sigHabil(k,n){const d=new Date(k+'T12:00:00');let c=0;while(c<n){d.setDate(d.getDate()+1);if(esHabil(d))c++}return d.toLocaleDateString('en-CA')}
+const SG_OP=['Vencida','Vence hoy','Seguimiento hoy','Gestionada','Gestionadas hoy','En plazo','Rezago inicial','Sin control'];
+const kSegG=(id,est)=>nrm(id)+'|'+nrm(est).toLowerCase();
+const ejReal=e=>!!nrm(e)&&!/BD-Master$|^Sin dato$/.test(e);
+/* Última gestión por garantía + estado, leída del historial del servidor (se refresca cada 3 minutos) */
+const HG={t:0,ok:false,todos:false,err:'',last:new Map(),p:null,u:''};
+function cargarHG(forzar){
+ if(!AU.token||!syOn())return Promise.resolve(false);
+ /* Otro usuario en el mismo navegador: no se reutiliza lo que veía el anterior */
+ if(HG.u!==AU.email){HG.ok=false;HG.todos=false;HG.err='';HG.last=new Map();HG.u=AU.email;HG.p=null}
+ if(HG.p)return HG.p;
+ if(!forzar&&HG.ok&&Date.now()-HG.t<180000)return Promise.resolve(false);
+ const yo=AU.email;
+ HG.p=api({op:'segHist',desde:SEG_INI}).then(r=>{
+  if(yo!==AU.email)return false;
+  if(!r.ok){HG.err=errMsg(r.error);return true}
+  const M=new Map();(r.g||[]).forEach(f=>{const k=kSegG(f[6],f[7]);M.set(k,{t:f[0],quien:f[1],ej:f[3],en:f[4],acc:f[5],seg:/^\d{4}-\d\d-\d\d$/.test(String(f[11]||''))?String(f[11]):''})});
+  HG.last=M;HG.todos=!!r.todos;HG.ok=true;HG.err='';HG.t=Date.now();return true;
+ }).catch(e=>{if(!e||!e.sesion)HG.err=ERR.red;return true}).finally(()=>{HG.p=null});
+ return HG.p;
+}
+const verSegG=x=>HG.ok&&HG.u===AU.email&&(HG.todos||(!!AU.ej&&ejIgual(AU.ej,x.ej)));
+const marcaSegG=x=>ejReal(x.ej)&&(AU.admin||(!!AU.ej&&ejIgual(AU.ej,x.ej)));
+/* Situación de seguimiento de un caso (ítem o fila agrupada) */
+function segGar(x,hoy){
+ const p=plazoGar(x.est,x.gu),l=HG.last.get(kSegG(x.id,x.est)),rez0=p!=null&&!!x.fe&&habiles(x.fe,SEG_INI)>p;
+ if(l&&l.acc==='Gestionada'){
+  const dia=new Date(l.t).toLocaleDateString('en-CA');
+  if(l.seg&&l.seg<=hoy)return{s:'Seguimiento hoy',l,rez0};
+  return{s:'Gestionada',l,hoyG:dia===hoy,rez0};
+ }
+ if(p==null||!x.fe)return{s:'Sin control',rez0:false};
+ const d=habiles(x.fe,hoy);
+ if(rez0)return{s:'Rezago inicial',at:d-p,rez0};
+ return d>p?{s:'Vencida',at:d-p,rez0}:d===p?{s:'Vence hoy',rez0}:{s:'En plazo',v:sigHabil(x.fe,p),rez0};
+}
+const hm=t=>new Date(t).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'});
+function segTag(x,S){
+ const t=(c,v,ti)=>'<span class="sgt '+c+'"'+(ti?' title="'+esc(ti)+'"':'')+'>'+v+'</span>';
+ const quien=S.l?'Gestionada por '+S.l.quien+(S.l.en?' en nombre de '+S.l.ej:'')+' el '+fd(new Date(S.l.t).toLocaleDateString('en-CA'))+' '+hm(S.l.t):'';
+ switch(S.s){
+  case'Vencida':return t('vc','Vencida · '+S.at+' d');
+  case'Vence hoy':return t('vh','Vence hoy');
+  case'En plazo':return t('ep','Vence '+fd(S.v).slice(0,5));
+  case'Rezago inicial':return t('rz','Rezago · '+S.at+' d','Vencida antes del arranque del seguimiento ('+fd(SEG_INI)+')');
+  case'Seguimiento hoy':return t('sh',S.l.seg<hoyK()?'Seguimiento '+fd(S.l.seg).slice(0,5):'Seguimiento hoy',quien+' · seguimiento '+fd(S.l.seg));
+  case'Gestionada':return t('gs','✓ '+(S.l.seg?fd(S.l.seg).slice(0,5):'Gestionada'),quien+(S.l.seg?' · seguimiento '+fd(S.l.seg):''));
+  default:return'<span class="sgt sc">—</span>';
+ }
+}
+/* Fecha local de un valor con fecha y hora (FechaEstado, fecha de la garantía). dk suma 12 horas para las fechas sin hora y,
+   con la hora de Colombia, pasaba al día siguiente todo cambio de estado hecho después de las 7 a. m.
+   Se suman 2 minutos porque la lectura del Excel a veces deja la hora unos segundos antes de la real. */
+const dkL=d=>new Date(d.getTime()+12e4).toLocaleDateString('en-CA');
 async function datosGar(){
  const g=await get('garantias');
  if(!g)return null;
@@ -1390,12 +1477,12 @@ async function datosGar(){
  for(const r of g.rows){
   const id=nrm(v(r,'idGarantia'));if(!id)continue;
   const ped=nrm(v(r,'pedido')),fe=v(r,'FechaEstado'),t=nrm(v(r,'tipo'));
-  const dias=fe instanceof Date?habiles(dk(fe),ref):'';
+  const dias=fe instanceof Date?habiles(dkL(fe),ref):'';
   const nf=nrm(v(r,'NomeFantasia')),cod=nrm(nf.split('-')[0])||nrm(v(r,'Cliente')),e=eje.get(kCod(cod))||{},asg=e.ag?null:SEG.asig.get(kCod(cod));
   const est0=nrm(v(r,'Estado'));
-  I.push({k:id+'|'+ped+'|'+dias,id,ped,dist:nf,cod,dias,fe:fe instanceof Date?dk(fe):'',est:est0,al:alertaGar(est0,dias)?'Fuera de tiempo':'En tiempo',neg:nrm(v(r,'Negocio')),
+  I.push({k:id+'|'+ped+'|'+dias,id,ped,dist:nf,cod,dias,fe:fe instanceof Date?dkL(fe):'',est:est0,al:alertaGar(est0,dias)?'Fuera de tiempo':'En tiempo',neg:nrm(v(r,'Negocio')),
    def:t==='0'?'Garantia':t==='1'?'Reparacion':(t||'Sin dato'),ej:e.ag||(asg?asg.e:(!ms?'Sin dato':e.ms?'Vacío en BD-Master':'No está en BD-Master')),ge:e.ge||'Sin dato',gu:mGu.g.get(id)||'',
-   fecha:v(r,'fecha') instanceof Date?dk(v(r,'fecha')):'',cf:nrm(v(r,'clienteFinal')),fac:nrm(v(r,'factura')),
+   fecha:v(r,'fecha') instanceof Date?dkL(v(r,'fecha')):'',cf:nrm(v(r,'clienteFinal')),fac:nrm(v(r,'factura')),
    it:v(r,'item'),pr:nrm(v(r,'desProd')),lin:nrm(v(r,'DLinea'))||'Sin línea',can:v(r,'cantidad'),pb:nrm(v(r,'problema')),an:nrm(v(r,'analisis')),ip:v(r,'itemPed')});
  }
  if(ms){const sinE=new Map();I.forEach(y=>{if(/BD-Master$/.test(y.ej)){const s=sinE.get(y.cod)||{n:y.dist,g:new Set(),t:y.ej};s.g.add(y.id);sinE.set(y.cod,s)}});
@@ -1503,20 +1590,22 @@ async function rGar(){
  if(!D){el.innerHTML=sinDatos('Garantías','Cárgalos en la pestaña Carga.');return}
  const{g,I,faltan,aviso}=D;
  el.innerHTML='<h2 class="tt">Garantías y reparaciones</h2><div class="chips"><span><b id="g-ng"></b>garantías y reparaciones</span><span><b id="g-ni"></b>ítems reclamados</span><span><b id="g-nd"></b>distribuidores</span><span class="o"><b id="g-nm"></b>fuera de tiempo</span></div>'
-  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Una fila por garantía y pedido. Ordenada de más a menos días en estado. Días en estado: días hábiles (sin sábados, domingos ni festivos de Colombia) desde el último cambio de estado hasta el día de carga de la base ('+fd(new Date(g.cargado).toLocaleDateString('en-CA'))+'). En naranja: Transferida con 2 o más días hábiles, Enviar accesorios con 4 o más, En planta y Atender en obra con 5 o más, y Respuesta Cliente con más de 30. Nro de ítems reclamados: cuántos ítems del pedido se reclaman en la garantía. Haz clic en ⊞ para verlos con su ítem del pedido (columna itemPed). Fuente: '+esc(g.archivo)+'.'
+  +'<div class="segk" id="g-sk" role="group" aria-label="Seguimiento"></div><p class="msg" id="g-sm" hidden></p>'
+  +'<details class="nota"><summary>ⓘ Cómo se calcula</summary><p class="est">Una fila por garantía y pedido. Ordenada de más a menos días en estado. Días en estado: días hábiles (sin sábados, domingos ni festivos de Colombia) desde el último cambio de estado hasta el día de carga de la base ('+fd(new Date(g.cargado).toLocaleDateString('en-CA'))+'). En naranja: Transferida con 2 o más días hábiles, Enviar accesorios con 4 o más, En planta y Atender en obra con 5 o más, y Respuesta Cliente con más de 30. Nro de ítems reclamados: cuántos ítems del pedido se reclaman en la garantía. Haz clic en ⊞ para verlos con su ítem del pedido (columna itemPed). Seguimiento: marca la casilla cuando gestiones el caso y elige la fecha de seguimiento (se propone el siguiente día hábil); ese día la fila titila hasta que la vuelvas a gestionar o cambie de estado. Plazos en días hábiles desde el cambio de estado: Transferida, Confirmar con el cliente y Entrega a Despacho sin guía 2; Aprobada 3; Enviar accesorios 4; En planta y Atender en obra 5; Respuesta Cliente 30. Rezago inicial: lo que ya estaba vencido el '+fd(SEG_INI)+'; no cuenta en las vencidas del día y sale al gestionarlo o al cambiar de estado. Fuente: '+esc(g.archivo)+'.'
   +(faltan.length?' Faltan por cargar: '+faltan.join(', ')+'.':'')+'</p></details>'+(aviso.length?'<p class="msg err">'+aviso.map(esc).join('<br>')+'</p>':'')
   +'<div class="filtros"><input id="g-q" type="search" placeholder="Buscar garantía, pedido, distribuidor, cliente final, factura o producto" aria-label="Buscar">'+qfBtn('g')+'<button type="button" class="btn ex" id="g-x">Exportar a Excel</button></div><div class="fbar" id="g-b"></div>'
   +'<div class="adv" id="g-adv" role="group" aria-label="Filtro avanzado"><b>Filtro avanzado</b>'
   +'<label>Color <select id="g-col"><option value="">Todos</option><option value="n">Naranja (fuera de tiempo)</option><option value="s">Sin color (en tiempo)</option></select></label>'
   +'<label>Días en estado <select id="g-op"><option value="">Cualquiera</option><option value="gt">Mayor que (&gt;)</option><option value="ge">Mayor o igual (&ge;)</option><option value="lt">Menor que (&lt;)</option><option value="le">Menor o igual (&le;)</option><option value="eq">Igual a (=)</option><option value="bt">Entre</option></select></label>'
   +'<input id="g-n1" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Número de días"><span id="g-y" hidden>y</span><input id="g-n2" type="number" min="0" step="1" inputmode="numeric" placeholder="días" aria-label="Hasta cuántos días" hidden>'
+  +'<label>Seguimiento <select id="g-sg"><option value="">Todos</option>'+SG_OP.map(v=>'<option>'+esc(v)+'</option>').join('')+'</select></label>'
   +'</div><div id="g-t"></div>';
  const defs=[{n:'Ejecutivo',f:x=>x.ej},{n:'Comercial-Zona',f:x=>x.ge},{n:'Negocio',f:x=>x.neg},{n:'Definición',f:x=>x.def},{n:'Estado',f:x=>x.est},
   {n:'Distribuidor',f:x=>x.dist},{n:'Días en estado',f:x=>x.dias,num:true},{n:'Tipo de cortina',f:x=>x.lin},{n:'Guía de despacho',f:x=>x.gu?'Con guía':'Sin guía'}].map(d=>({...d,uk:x=>x.id}));
  /* Los filtros actúan sobre los ítems (como los segmentadores) y los conteos son garantías */
  let pasa=()=>true,ult=[];
  /* Filtro avanzado: color del resaltado y días en estado con >, >=, <, <=, = o entre */
- const AV=FQ.gAdv||(FQ.gAdv={col:'',op:'',n1:'',n2:''});
+ const AV=FQ.gAdv||(FQ.gAdv={col:'',op:'',n1:'',n2:''});if(AV.sg==null)AV.sg='';
  const OPS={gt:['>',(d,a)=>d>a],ge:['≥',(d,a)=>d>=a],lt:['<',(d,a)=>d<a],le:['≤',(d,a)=>d<=a],eq:['=',(d,a)=>d===a],bt:['entre',(d,a,b)=>d>=Math.min(a,b)&&d<=Math.max(a,b)]};
  const pasaAv=y=>{
   if(AV.col==='n'&&y.al!=='Fuera de tiempo')return false;
@@ -1524,23 +1613,31 @@ async function rGar(){
   if(AV.op&&AV.n1!==''&&(AV.op!=='bt'||AV.n2!=='')){if(y.dias==='')return false;if(!OPS[AV.op][1](y.dias,+AV.n1,+AV.n2))return false}
   return true;
  };
- const txtAv=()=>{const r=[];if(AV.col)r.push(['Color',AV.col==='n'?'Naranja (fuera de tiempo)':'Sin color (en tiempo)']);
+ /* Seguimiento: se evalúa aparte para que las tarjetas cuenten con los demás filtros aplicados */
+ const pasaSg=(y,S)=>!AV.sg||(AV.sg==='Gestionadas hoy'?S.s==='Gestionada'&&S.hoyG:S.s===AV.sg);
+ const EDG=new Map();let hoy=hoyK();
+ const txtAv=()=>{const r=[];if(AV.sg)r.push(['Seguimiento',AV.sg]);if(AV.col)r.push(['Color',AV.col==='n'?'Naranja (fuera de tiempo)':'Sin color (en tiempo)']);
   if(AV.op&&AV.n1!==''&&(AV.op!=='bt'||AV.n2!==''))r.push(['Días en estado',AV.op==='bt'?'entre '+AV.n1+' y '+AV.n2:OPS[AV.op][0]+' '+AV.n1]);return r};
  const pintar=()=>{
   const q=$('#g-q').value.toLowerCase();
   $('#g-adv').classList.toggle('on',txtAv().length>0);
   const hit=q?new Set(I.filter(y=>(y.id+' '+y.ped+' '+y.dist+' '+y.cf+' '+y.fac+' '+y.gu+' '+y.pr).toLowerCase().includes(q)).map(y=>y.id)):null;
-  const R=agruparGar(I.filter(y=>pasa(y)&&pasaAv(y)&&(!hit||hit.has(y.id))));
+  hoy=hoyK();
+  const B=I.filter(y=>pasa(y)&&pasaAv(y)&&(!hit||hit.has(y.id)));
+  const SG=new Map();B.forEach(y=>{if(verSegG(y)){const k=kSegG(y.id,y.est);if(!SG.has(k))SG.set(k,segGar(y,hoy))}});
+  pintarSk(SG);
+  const R=agruparGar(AV.sg?B.filter(y=>{const S=SG.get(kSegG(y.id,y.est));return S&&pasaSg(y,S)}):B);
+  R.forEach(x=>{x.sg=SG.get(kSegG(x.id,x.est))||null});
   ult=R;
   const NI=R.reduce((s,x)=>s+x.n,0);
   $('#g-ng').textContent=new Set(R.map(x=>x.id)).size.toLocaleString('es-CO');$('#g-ni').textContent=NI.toLocaleString('es-CO');
   $('#g-nd').textContent=new Set(R.map(x=>x.dist)).size.toLocaleString('es-CO');$('#g-nm').textContent=R.filter(x=>x.al==='Fuera de tiempo').length.toLocaleString('es-CO');
   if(!R.length){$('#g-t').innerHTML=vacio('Ninguna garantía coincide con los filtros.');return}
-  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:112px"><col style="width:100px"><col><col style="width:170px"><col style="width:112px"><col style="width:150px"><col style="width:86px"><col style="width:140px"><col style="width:112px"></colgroup><thead><tr><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Ejecutivo</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th></tr></thead><tbody>'
-   +'<tr class="tot"><td colspan="8">Total general · '+R.length.toLocaleString('es-CO')+' filas</td><td class="n">'+NI.toLocaleString('es-CO')+'</td></tr>';
+  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:32px"><col style="width:100px"><col style="width:88px"><col><col style="width:140px"><col style="width:100px"><col style="width:130px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:128px"></colgroup><thead><tr><th><span class="sr">Gestionada</span></th><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Ejecutivo</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th><th>Seguimiento</th></tr></thead><tbody>'
+   +'<tr class="tot"><td></td><td colspan="8">Total general · '+R.length.toLocaleString('es-CO')+' filas</td><td class="n">'+NI.toLocaleString('es-CO')+'</td><td></td></tr>';
   R.forEach((x,i)=>{
-   t+='<tr><td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="agt" title="'+esc(x.ej)+'">'+esc(x.ej)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td>'+esc(x.gu)+'</td><td class="n">'+x.n+'</td></tr>';
-   x.its.forEach(y=>{t+='<tr class="det d'+i+'" hidden><td class="n">ítem '+esc(y.it)+'</td><td colspan="7" class="wr">'+esc(y.pr)+(y.lin?' <span class="sb">'+esc(y.lin)+'</span>':'')+(y.pb?'<br>Problema: '+esc(y.pb):'')+(y.an&&y.an!=='.'?'<br>Análisis: '+esc(y.an):'')+'</td><td class="n">ítem pedido '+esc(y.ip)+'</td></tr>'});
+   t+='<tr'+(x.sg&&x.sg.s==='Seguimiento hoy'?' class="segb"':'')+'>'+celdaCb(x,i)+'<td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="agt" title="'+esc(x.ej)+'">'+esc(x.ej)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td>'+esc(x.gu)+'</td><td class="n">'+x.n+'</td>'+celdaSg(x,i)+'</tr>';
+   x.its.forEach(y=>{t+='<tr class="det d'+i+'" hidden><td></td><td class="n">ítem '+esc(y.it)+'</td><td colspan="7" class="wr">'+esc(y.pr)+(y.lin?' <span class="sb">'+esc(y.lin)+'</span>':'')+(y.pb?'<br>Problema: '+esc(y.pb):'')+(y.an&&y.an!=='.'?'<br>Análisis: '+esc(y.an):'')+'</td><td class="n">ítem pedido '+esc(y.ip)+'</td><td></td></tr>'});
   });
   $('#g-t').innerHTML=t+'</tbody></table></div>';
   $('#g-t').querySelectorAll('.tg').forEach(b=>b.onclick=()=>{
@@ -1548,6 +1645,53 @@ async function rGar(){
    $('#g-t').querySelectorAll('.d'+b.dataset.i).forEach(r=>r.hidden=o);
   });
  };
+ /* Casilla: solo el ejecutivo del caso o un administrador (en nombre del ejecutivo) */
+ const celdaCb=(x,i)=>{
+  if(!x.sg||x.sg.s==='Sin control'||!marcaSegG(x))return'<td></td>';
+  const k=kSegG(x.id,x.est),on=x.sg.s==='Gestionada'||EDG.has(k);
+  return'<td class="cbg"><input type="checkbox" class="gcb" data-i="'+i+'"'+(on?' checked':'')+' aria-label="Gestionada '+esc(x.id)+'"></td>';
+ };
+ const celdaSg=(x,i)=>{
+  if(!x.sg)return'<td>'+(HG.ok||!syOn()?'':'<span class="sgt sc">…</span>')+'</td>';
+  const k=kSegG(x.id,x.est);
+  if(EDG.has(k))return'<td class="sge"><input type="date" class="gfd" data-i="'+i+'" min="'+sigHabil(hoy,0)+'" value="'+EDG.get(k)+'" aria-label="Fecha de seguimiento"><button type="button" class="gsv" data-i="'+i+'" title="Guardar">✓</button><button type="button" class="gsx" data-i="'+i+'" title="Cancelar">✕</button></td>';
+  return'<td>'+segTag(x,x.sg)+'</td>';
+ };
+ const SKD=[['Vencida','Vencidas','r'],['Vence hoy','Vencen hoy','o'],['Seguimiento hoy','Seguimiento hoy','o'],['Gestionadas hoy','Gestionadas hoy',''],['Rezago inicial','Rezago inicial','g']];
+ const pintarSk=SG=>{
+  const el=$('#g-sk');if(!el)return;
+  if(!HG.ok){el.innerHTML=syOn()&&AU.token?(HG.err?'<p class="msg err">Seguimiento: '+esc(HG.err)+'</p>':'<p class="est">Cargando seguimiento…</p>'):'';return}
+  if(!SG.size&&!HG.todos&&!AU.ej){el.innerHTML='<p class="est">Para marcar garantías como gestionadas, tu usuario necesita un ejecutivo asignado (Perfil &gt; Administración).</p>';return}
+  const c={},V=[...SG.values()];let r0=0;
+  V.forEach(S=>{const k=S.s==='Gestionada'&&S.hoyG?'Gestionadas hoy':S.s;c[k]=(c[k]||0)+1;if(S.rez0)r0++});
+  const nr=c['Rezago inicial']||0,pr=r0?Math.round((r0-nr)/r0*100):100;
+  el.innerHTML=SKD.map(([v,n,cl])=>'<button type="button" class="sk '+cl+(AV.sg===v?' on':'')+'" data-sk="'+esc(v)+'" aria-pressed="'+(AV.sg===v)+'"><b>'+(c[v]||0).toLocaleString('es-CO')+(v==='Rezago inicial'?' <small>de '+r0.toLocaleString('es-CO')+'</small>':'')+'</b><span>'+n+'</span>'+(v==='Rezago inicial'?'<i class="skb"><i style="width:'+pr+'%"></i></i>':'')+'</button>').join('');
+ };
+ const msgSg=(tipo,txt)=>{const m=$('#g-sm');if(!m)return;m.hidden=!txt;m.className='msg'+(tipo==='err'?' err':' ok');m.textContent=txt||''};
+ const guardaSg=async(x,acc,seg)=>{
+  const k=kSegG(x.id,x.est);
+  try{const r=await api({op:'segGestion',items:[{ej:x.ej,accion:acc,g:x.id,est:x.est,cod:x.cod,dist:x.dist,nota:'',seg:seg||''}]});
+   if(!r.ok){msgSg('err',errMsg(r.error));return false}
+   HG.last.set(k,{t:r.t||new Date().toISOString(),quien:AU.name,ej:x.ej,en:ejIgual(AU.ej,x.ej)?'':'Sí',acc,seg:seg||''});
+   msgSg('ok',acc==='Gestionada'?'Garantía '+x.id+' gestionada · seguimiento '+fd(seg)+'.':'Se desmarcó la garantía '+x.id+'.');return true;
+  }catch(e){if(!e||!e.sesion)msgSg('err',ERR.red);return false}
+ };
+ $('#g-sk').onclick=e=>{const b=e.target.closest('[data-sk]');if(!b)return;AV.sg=AV.sg===b.dataset.sk?'':b.dataset.sk;$('#g-sg').value=AV.sg;pintar()};
+ $('#g-t').addEventListener('change',async e=>{
+  const c=e.target.closest('.gcb'),f=e.target.closest('.gfd');
+  if(f){const x=ult[+f.dataset.i];if(x&&f.value)EDG.set(kSegG(x.id,x.est),f.value);return}
+  if(!c)return;const x=ult[+c.dataset.i];if(!x)return;const k=kSegG(x.id,x.est);
+  if(c.checked){EDG.set(k,sigHabil(hoy,1));pintar();const d=$('#g-t').querySelector('.gfd[data-i="'+c.dataset.i+'"]');if(d)d.focus();return}
+  if(EDG.has(k)){EDG.delete(k);pintar();return}
+  c.disabled=true;await guardaSg(x,'Desmarcada','');pintar();
+ });
+ $('#g-t').addEventListener('click',async e=>{
+  const s=e.target.closest('.gsv'),xx=e.target.closest('.gsx');
+  if(xx){const x=ult[+xx.dataset.i];if(x)EDG.delete(kSegG(x.id,x.est));pintar();return}
+  if(!s)return;const x=ult[+s.dataset.i];if(!x)return;const k=kSegG(x.id,x.est),d=$('#g-t').querySelector('.gfd[data-i="'+s.dataset.i+'"]'),v=d&&d.value;
+  if(!v||v<=hoy){msgSg('err','Elige una fecha de seguimiento posterior a hoy.');return}
+  s.disabled=true;if(await guardaSg(x,'Gestionada',v))EDG.delete(k);pintar();
+ });
  pasa=filtros($('#g-b'),defs,I,pintar,'g');
  $('#g-q').value=FQ.g||'';$('#g-q').oninput=()=>{FQ.g=$('#g-q').value;pintar()};
  const sync=()=>{const bt=AV.op==='bt';$('#g-n2').hidden=!bt;$('#g-y').hidden=!bt;$('#g-n1').disabled=!AV.op;$('#g-n1').placeholder=bt?'desde':'días'};
@@ -1556,11 +1700,12 @@ async function rGar(){
  $('#g-op').onchange=()=>{AV.op=$('#g-op').value;sync();if(AV.op&&AV.n1==='')$('#g-n1').focus();pintar()};
  $('#g-n1').oninput=()=>{AV.n1=$('#g-n1').value.trim();pintar()};
  $('#g-n2').oninput=()=>{AV.n2=$('#g-n2').value.trim();pintar()};
- 
+ $('#g-sg').value=AV.sg;$('#g-sg').onchange=()=>{AV.sg=$('#g-sg').value;pintar()};
  pintar();
+ cargarHG().then(c=>{if(c&&document.body.contains($('#g-t')))pintar()});
  $('#g-x').onclick=()=>exportar('Garantias',[
-  {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Ejecutivo','Comercial-Zona','Tipo de cortina','Fecha garantía','Cliente final','Factura'],
-   rows:ult.map(x=>[x.id,x.ped,x.dist,x.def,x.neg,x.est,fd(x.fe),x.dias,x.al,x.gu,x.n,x.ej,x.ge,x.linT,fd(x.fecha),x.cf,x.fac])},
+  {n:'Garantías',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Definición','Negocio','Estado','Fecha estado','Días hábiles en estado','Alerta de tiempo','Guía despacho','Nro de ítems reclamados','Ejecutivo','Comercial-Zona','Tipo de cortina','Fecha garantía','Cliente final','Factura','Seguimiento','Fecha de seguimiento','Gestionada por'],
+   rows:ult.map(x=>{const S=x.sg,l=S&&S.l;return[x.id,x.ped,x.dist,x.def,x.neg,x.est,fd(x.fe),x.dias,x.al,x.gu,x.n,x.ej,x.ge,x.linT,fd(x.fecha),x.cf,x.fac,S?S.s:'',l&&l.seg?fd(l.seg):'',l?l.quien+(l.en?' (en nombre de '+l.ej+')':''):'']})},
   {n:'Detalle de ítems',cab:['Nro Garantía - Reparación','Pedido','Distribuidor','Estado','Ítem del pedido','Ítem en la garantía','Producto','Tipo de cortina','Cantidad','Problema','Análisis'],
    rows:ult.flatMap(x=>x.its.map(y=>[x.id,x.ped,x.dist,x.est,y.ip,y.it,y.pr,y.lin,y.can,y.pb,y.an]))},
   (h=>{const t=txtAv();if(t.length){h.rows=h.rows.filter(r=>r[0]!=='Sin filtros');h.rows.push(...t)}return h})(hojaFiltros(pasa,$('#g-q').value))]);
