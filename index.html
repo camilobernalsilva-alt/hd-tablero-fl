@@ -1220,14 +1220,23 @@ function fechaRep(x){
  return{t:'por confirmar',d:'',e:false};
 }
 /* Líneas de un pedido: un artículo (COD + Cod. Color) una sola vez, con el consumo sumado y la fecha más lejana */
+/* Artículo descontinuado: la observación de Base o Accesorios lo dice (también "en proceso de compra autorizado"; decisión del 28/11/2026). Los ETTES no traen observación */
+const descRep=x=>!x.ett&&/descontinuad/i.test(String(x.obs||''));
 function lineasRep(A){
  const m=new Map();
  for(const x of A){const k=(x.cc||x.comp)+'|'+(x.cl||x.coln),f=fechaRep(x);let a=m.get(k);
-  if(!a){a={k,comp:x.comp||x.art,col:x.coln||'',con:0,f};m.set(k,a)}
+  if(!a){a={k,comp:x.comp||x.art,col:x.coln||'',con:0,f,dc:false};m.set(k,a)}
+  if(descRep(x))a.dc=true;
   a.con+=x.con;if(f.d&&(!a.f.d||f.d>a.f.d))a.f=f}
  return[...m.values()];
 }
 function cierreRep(Ls,hoy){
+ const dc=Ls.filter(l=>l.dc);
+ if(!dc.length)return cierreBase(Ls,hoy);
+ const ot=Ls.filter(l=>!l.dc),td=(dc.length===1?'Este artículo fue descontinuado.':'Estos artículos fueron descontinuados.')+' Lo invitamos a comunicarse con su asesor para definir un reemplazo y continuar con su pedido.';
+ return(ot.length?cierreBase(ot,hoy)+' ':'')+td;
+}
+function cierreBase(Ls,hoy){
  const fe=Ls.filter(l=>l.f.d);
  if(!fe.length)return'Su pedido se encuentra siendo gestionado por las áreas internas. Apenas tengamos una fecha concreta de solución, la estaremos informando por este medio.';
  const nac=fe.filter(l=>!l.f.e);
@@ -1247,7 +1256,7 @@ function correoRep(G,hoy,antes){
  for(const p of G.peds){
   h+='<p style="margin:0 0 4px;'+F+'font-size:10pt;color:#F08200;font-weight:bold;text-decoration:underline">Pedido '+esc(p.ped)+'</p><ul style="margin:0 0 6px;padding-left:22px;'+F+'font-size:10pt;color:#2B343A">';
   for(const l of p.lineas){const ant=antes&&antes(p.ped,l.k);
-   h+='<li style="margin:0 0 2px">'+esc(l.comp)+(l.col?' · '+esc(l.col):'')+' · Consumo: '+fNumRep(l.con)+' · '+(l.f.e?'Fecha estimada de llegada: ':'Fecha de solución: ')+esc(l.f.t)+(ant&&ant!==l.f.t?' (antes '+esc(ant)+')':'')+'</li>'}
+   h+='<li style="margin:0 0 2px">'+esc(l.comp)+(l.col?' · '+esc(l.col):'')+' · Consumo: '+fNumRep(l.con)+' · '+(l.dc?'Artículo descontinuado':(l.f.e?'Fecha estimada de llegada: ':'Fecha de solución: ')+esc(l.f.t)+(ant&&ant!==l.f.t?' (antes '+esc(ant)+')':''))+'</li>'}
   h+='</ul><p style="'+P+'margin-bottom:14px">'+cierreRep(p.lineas,hoy)+'</p>';
  }
  h+='<p style="'+P+'">Agradecemos su comprensión. Estamos trabajando para ofrecerle una mejor experiencia.</p>'
