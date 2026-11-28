@@ -1357,7 +1357,7 @@ async function rFaltantes(){
      +'</tbody></table></td></tr>';
     const ags=[...new Set(g.a.map(y=>y.ag).filter(v=>v&&v!=='No'))].join(', ')||x.ag;
     const sel=SELF.has(x.pedido),rep=pendHoyF.get(x.pedido)==='rep';
-    return'<tr class="'+g.st+(sel?' rsl':rep?' rok':'')+'"><td class="cbf">'+(REPPED.has(x.pedido)?'<input type="checkbox" class="fsel" data-ped="'+esc(x.pedido)+'"'+(sel?' checked':'')+' aria-label="Marcar '+esc(x.pedido)+' para el reporte">':'')+'</td><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
+    return'<tr class="'+g.st+(sel?' rsl':rep?' rok':'')+'"><td class="cbf">'+(REPPED.has(x.pedido)?'<input type="checkbox" class="fsel" data-ped="'+esc(x.pedido)+'"'+(sel||rep?' checked':'')+' aria-label="Marcar '+esc(x.pedido)+' para el reporte">':'')+'</td><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
    +'</tbody></table></div>';
  };
  /* Reporte a distribuidores (Etapa 3): un correo por distribuidor y marca con todos sus pedidos (sin Proyectos).
@@ -1409,7 +1409,7 @@ async function rFaltantes(){
   const totP=RG.reduce((s,g)=>s+g.np,0);
   if(!RG.length&&!nP){el.innerHTML='';return}
   const est=(p)=>{if(!p.ver)return'';const H=histF(p.ped),l=H[H.length-1];
-   if(p.est==='rep')return'<span class="sgt gs" title="'+esc('Reportado por '+l.quien+(l.en?' en nombre de '+l.ej:'')+' a las '+hm(l.t))+'">✓ Reportado hoy '+hm(l.t)+'</span>'+(marcaF(p.ej)?' <button type="button" class="lm rdm" data-rp="'+esc(p.ped)+'">Desmarcar</button>':'');
+   if(p.est==='rep')return'<span class="sgt gs" title="'+esc('Reportado por '+l.quien+(l.en?' en nombre de '+l.ej:'')+' a las '+hm(l.t))+'">✓ Reportado hoy '+hm(l.t)+'</span>';
    if(p.est==='cambio')return'<span class="sgt vc">Cambió la fecha · reportar de nuevo</span>';
    return habil?'<span class="sgt vh">Sin reportar</span>':'<span class="sgt sc">—</span>'};
   const abre=!FQ.fRepC;   /* empieza abierto; si la persona lo cierra, se respeta */
@@ -1421,7 +1421,7 @@ async function rFaltantes(){
    +RG.map((g,i)=>{const op=REPA.has(g.k);
     const st=!g.ver?'':g.np?'<span class="sgt vh">'+g.np+(g.np===1?' pedido sin reportar':' pedidos sin reportar')+'</span>':habil?'<span class="sgt gs">✓ Al día</span>':'';
     return'<tr class="rgf'+(g.ok?' rok':'')+'"><td class="dd" title="'+esc(g.dist)+'"><button class="tg" data-rg="'+i+'" aria-expanded="'+op+'" aria-label="Ver los pedidos de '+esc(g.dist)+'">'+(op?'⊟':'⊞')+'</button> '+esc((g.cod?g.cod+'-':'')+g.dist)+(g.dos?' <span class="sgt vc" title="Este distribuidor tiene pedidos de dos marcas: sale un reporte por marca">2 marcas</span>':'')+'</td><td class="dd" title="'+esc(g.ej)+'">'+esc(g.ej)+'</td><td>'+MARCAS[g.mar].n+'</td><td class="n" title="Pedidos marcados para el reporte">'+(g.nsel?g.nsel+' de '+g.peds.length:g.peds.length)+'</td><td>'+st+'</td><td><button type="button" class="btn ex rcp" data-rc="'+i+'">Copiar reporte</button></td></tr>'
-     +g.peds.map(p=>'<tr class="det rg'+i+(SELF.has(p.ped)?' rsl':p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(SELF.has(p.ped)?' checked':'')+'> Pedido <b>'+esc(p.ped)+'</b> · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
+     +g.peds.map(p=>'<tr class="det rg'+i+(SELF.has(p.ped)?' rsl':p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(SELF.has(p.ped)||p.est==='rep'?' checked':'')+(p.est==='rep'&&!SELF.has(p.ped)&&!marcaF(p.ej)?' disabled':'')+'> Pedido <b>'+esc(p.ped)+'</b> · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
    +'</tbody></table></div>':'')
    +(sinDist.size?'<p class="est">Sin reporte porque no se sabe el distribuidor (accesorios de pedidos que no están en Pending ni en la hoja Base): '+[...sinDist].map(esc).join(', ')+'.</p>':'')
    +(nP?'<p class="est">Proyectos (informativo, sin reporte): '+nP+(nP===1?' pedido':' pedidos')+' de la familia '+esc(SEG.fam.join(', '))+'.</p>':'')
@@ -1461,22 +1461,22 @@ async function rFaltantes(){
  /* Casilla de la segunda línea: qué pedidos entran al reporte (no marca nada como reportado) */
  $('#f-rep').addEventListener('change',e=>{
   const c=e.target.closest('.rsel');if(!c)return;
-  const ped=c.dataset.rp.split('|')[1];c.checked?SELF.add(ped):SELF.delete(ped);pintar();
+  togglePedF(c.dataset.rp.split('|')[1],c);
  });
  /* Casilla de la grilla de abajo: es la misma selección que la del reporte */
  $('#f-t').addEventListener('change',e=>{
   const c=e.target.closest('.fsel');if(!c)return;
-  const ped=c.dataset.ped;c.checked?SELF.add(ped):SELF.delete(ped);
-  const g=RG.find(q=>q.peds.some(p=>p.ped===ped));if(g&&c.checked)REPA.add(g.k);pintar();
+  togglePedF(c.dataset.ped,c);
  });
- /* Desmarcar un pedido reportado: vuelve a "Sin reportar" y el distribuidor a su color original */
- $('#f-rep').addEventListener('click',async e=>{
-  const d=e.target.closest('.rdm');if(!d)return;
-  const tr=d.closest('tr'),i=[...tr.classList].find(c=>/^rg\d+$/.test(c)).slice(2),G=RG[+i];if(!G)return;const p=G.peds.find(q=>q.ped===d.dataset.rp);if(!p)return;
-  d.disabled=true;const n=await registraF([p],'Desmarcado',G);
-  if(n>0)avisoF('Pedido '+p.ped+' desmarcado');
-  pintar();if(n>0)msgRep('ok','Se desmarcó el pedido '+esc(p.ped)+'.');
- });
+ /* Marcar = queda listo para "Copiar reporte" (naranja). Desmarcar un pedido ya reportado hoy anula el reporte:
+    vuelve a "Sin reportar" y pierde el color y la hora. */
+ async function togglePedF(ped,c){
+  const g=RG.find(q=>q.peds.some(p=>p.ped===ped)),p=g&&g.peds.find(q=>q.ped===ped);
+  if(c.checked){SELF.add(ped);if(g)REPA.add(g.k);pintar();return}
+  if(SELF.has(ped)){SELF.delete(ped);pintar();return}
+  if(p&&p.est==='rep'){c.disabled=true;const n=await registraF([p],'Desmarcado',g);if(n>0)avisoF('Pedido '+ped+' desmarcado');pintar();if(n>0)msgRep('ok','Se quitó el reporte de hoy del pedido '+esc(ped)+'.');return}
+  pintar();
+ }
  pasa=filtros($('#f-b'),defs,L,pintar,'f');
  $('#f-q').value=FQ.f||'';$('#f-q').oninput=()=>{FQ.f=$('#f-q').value;pintar()};pintar();
  cargarHG().then(c=>{if(c&&document.body.contains($('#f-t')))pintar()});
