@@ -404,7 +404,7 @@ table.pv.gar tr.det td.wr{white-space:normal;max-width:none;overflow:visible}
 /* Seguimiento de garantías (v49) */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* Reporte a distribuidores en Faltantes (v52) */
-details.rep{margin:0 0 16px;border:1px solid var(--ln);background:var(--sf);padding:10px 12px}
+details.rep{margin:0 0 16px;border:1px solid var(--ln);border-left:4px solid var(--or);background:var(--sf);padding:10px 12px}
 details.rep>summary{cursor:pointer;font-weight:650;color:var(--ink)}
 details.rep[open]>summary{margin-bottom:10px}
 table.pv.rep{table-layout:fixed;width:100%;min-width:900px}
@@ -1378,7 +1378,7 @@ async function rFaltantes(){
    if(p.est==='rep')return'<span class="sgt gs" title="'+esc('Reportado por '+l.quien+(l.en?' en nombre de '+l.ej:'')+' a las '+hm(l.t))+'">✓ Reportado hoy '+hm(l.t)+'</span>';
    if(p.est==='cambio')return'<span class="sgt vc">Cambió la fecha · reportar de nuevo</span>';
    return habil?'<span class="sgt vh">Sin reportar</span>':'<span class="sgt sc">—</span>'};
-  const abre=FQ.fRepC==null?HG.ok&&!HG.todos:!FQ.fRepC;   /* abierto para el ejecutivo; para quien ve todo el equipo empieza cerrado */
+  const abre=!FQ.fRepC;   /* empieza abierto; si la persona lo cierra, se respeta */
   el.innerHTML='<details class="rep"'+(abre?' open':'')+'><summary>Reporte a distribuidores · '+RG.length+(RG.length===1?' distribuidor':' distribuidores')+(HG.ok?' · '+totP+(totP===1?' pedido sin reportar':' pedidos sin reportar'):'')+'</summary>'
    +(habil?'':'<p class="est">Hoy no es día hábil: no hay reportes pendientes. Puedes copiar un reporte si lo necesitas.</p>')
    +(HG.err?'<p class="msg err">Seguimiento: '+esc(HG.err)+'</p>':'')
