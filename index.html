@@ -394,7 +394,7 @@ tr.seg.rojo td{color:var(--rd)}tr.seg.nuevo td{color:var(--am)}
 .btn.sgb{min-height:38px}
 @media(max-width:700px){tr.seg td.sg>div{max-width:calc(100vw - 56px)}}
 /* Garantías: columnas de ancho fijo, el distribuidor toma el espacio sobrante y todas las filas miden igual */
-table.pv.gar{table-layout:fixed;width:100%;min-width:1140px}
+table.pv.gar{table-layout:fixed;width:100%;min-width:1164px}
 table.pv.gar td,table.pv.gar th{overflow:hidden;text-overflow:ellipsis}
 table.pv.gar th{white-space:normal;line-height:1.2;vertical-align:middle}
 table.pv.gar td:nth-child(3){min-width:0;white-space:nowrap}
@@ -403,6 +403,8 @@ table.pv.gar td.agt{white-space:nowrap}
 table.pv.gar tr.det td.wr{white-space:normal;max-width:none;overflow:visible}
 /* Seguimiento de garantías (v49) */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Guía de despacho completa y fácil de copiar: un clic la selecciona entera */
+table.pv.gar td.gug{white-space:nowrap;text-overflow:clip;font-variant-numeric:tabular-nums;user-select:all;-webkit-user-select:all;cursor:text}
 table.pv.gar td.cbg{text-align:center;padding-left:4px;padding-right:4px}
 .gcb{width:16px;height:16px;accent-color:var(--or);cursor:pointer;margin:0;vertical-align:middle}
 table.pv.gar td.sge{overflow:visible;white-space:nowrap;padding-top:3px;padding-bottom:3px}
@@ -1633,10 +1635,10 @@ async function rGar(){
   $('#g-ng').textContent=new Set(R.map(x=>x.id)).size.toLocaleString('es-CO');$('#g-ni').textContent=NI.toLocaleString('es-CO');
   $('#g-nd').textContent=new Set(R.map(x=>x.dist)).size.toLocaleString('es-CO');$('#g-nm').textContent=R.filter(x=>x.al==='Fuera de tiempo').length.toLocaleString('es-CO');
   if(!R.length){$('#g-t').innerHTML=vacio('Ninguna garantía coincide con los filtros.');return}
-  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:32px"><col style="width:100px"><col style="width:88px"><col><col style="width:140px"><col style="width:100px"><col style="width:130px"><col style="width:80px"><col style="width:100px"><col style="width:100px"><col style="width:128px"></colgroup><thead><tr><th><span class="sr">Gestionada</span></th><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Ejecutivo</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th><th>Seguimiento</th></tr></thead><tbody>'
+  let t='<div class="tw"><table class="pv gar"><colgroup><col style="width:32px"><col style="width:100px"><col style="width:88px"><col><col style="width:140px"><col style="width:100px"><col style="width:130px"><col style="width:80px"><col style="width:124px"><col style="width:100px"><col style="width:128px"></colgroup><thead><tr><th><span class="sr">Gestionada</span></th><th>Nro</th><th>Pedido</th><th>Distribuidor</th><th>Ejecutivo</th><th>Definición</th><th>Estado</th><th class="n">Días en estado</th><th>Guía despacho</th><th class="n">Ítems reclamados</th><th>Seguimiento</th></tr></thead><tbody>'
    +'<tr class="tot"><td></td><td colspan="8">Total general · '+R.length.toLocaleString('es-CO')+' filas</td><td class="n">'+NI.toLocaleString('es-CO')+'</td><td></td></tr>';
   R.forEach((x,i)=>{
-   t+='<tr'+(x.sg&&x.sg.s==='Seguimiento hoy'?' class="segb"':'')+'>'+celdaCb(x,i)+'<td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="agt" title="'+esc(x.ej)+'">'+esc(x.ej)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td>'+esc(x.gu)+'</td><td class="n">'+x.n+'</td>'+celdaSg(x,i)+'</tr>';
+   t+='<tr'+(x.sg&&x.sg.s==='Seguimiento hoy'?' class="segb"':'')+'>'+celdaCb(x,i)+'<td><button class="tg" data-i="'+i+'" aria-expanded="false" aria-label="Ver ítems de la garantía '+esc(x.id)+'">⊞</button> '+esc(x.id)+'</td><td>'+esc(x.ped)+'</td><td class="dn" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="agt" title="'+esc(x.ej)+'">'+esc(x.ej)+'</td><td>'+esc(x.def)+'</td><td>'+esc(x.est)+'</td><td class="n'+(x.al==='Fuera de tiempo'?' dm':'')+'">'+esc(x.dias)+'</td><td class="gug" title="'+esc(x.gu)+'">'+esc(x.gu)+'</td><td class="n">'+x.n+'</td>'+celdaSg(x,i)+'</tr>';
    x.its.forEach(y=>{t+='<tr class="det d'+i+'" hidden><td></td><td class="n">ítem '+esc(y.it)+'</td><td colspan="7" class="wr">'+esc(y.pr)+(y.lin?' <span class="sb">'+esc(y.lin)+'</span>':'')+(y.pb?'<br>Problema: '+esc(y.pb):'')+(y.an&&y.an!=='.'?'<br>Análisis: '+esc(y.an):'')+'</td><td class="n">ítem pedido '+esc(y.ip)+'</td><td></td></tr>'});
   });
   $('#g-t').innerHTML=t+'</tbody></table></div>';
