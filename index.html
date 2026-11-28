@@ -3045,14 +3045,16 @@ function mrEnF(ped,hoy){const a=HG.f.get(nrm(ped))||[];for(let i=a.length-1;i>=0
 async function mrCalcular(){
  const hoy=hoyK(),habil=esHabil(new Date(hoy+'T12:00:00'));
  const [F,G]=await Promise.all([datosFal(),datosGar()]);
- const C=[];
+ const C=[],X=new Set();   /* X: lo que no cuenta en el avance (Proyectos y rezago inicial), también en Semana */
  if(F){const P=new Map();F.L.forEach(x=>{if(!x.dist||x.dist==='No está en Pending')return;let a=P.get(x.pedido);if(!a){a=[];P.set(x.pedido,a)}a.push(x)});
   P.forEach((A,ped)=>{const x=A[0],e=estPedF({ped,lineas:lineasRep(A)},hoy);
+   if(esProyF(x))X.add('f|'+nrm(ped));
    C.push({t:'f',id:ped,ej:x.ag,dist:String(x.dist),proy:esProyF(x),s:e==='rep'?'hecho':habil?'pend':'',cam:e==='cambio',en:e==='rep'?mrEnF(ped,hoy):''})})}
  if(G){const V=new Set();G.I.forEach(y=>{const k=kSegG(y.id,y.est);if(V.has(k))return;V.add(k);const S=segGar(y,hoy);
   const s=S.s==='Gestionada'?(S.hoyG&&!S.rez0?'hecho':''):S.s==='Vencida'||S.s==='Vence hoy'||S.s==='Seguimiento hoy'?'pend':S.s==='Rezago inicial'?'rez':'';
+  if(S.rez0)X.add('g|'+kSegG(y.id,y.est));
   if(s)C.push({t:'g',id:y.id,ej:y.ej,dist:y.dist,est:y.est,S,s,venc:S.s==='Vencida',en:s==='hecho'&&S.l&&S.l.en?S.l.quien:''})})}
- return{C,hoy,habil,t:Date.now(),F:!!F,G:!!G};
+ return{C,X,hoy,habil,t:Date.now(),F:!!F,G:!!G};
 }
 function mrStats(C){
  const r={fp:0,fh:0,gp:0,gh:0,gv:0,rz:0,pr:0,df:new Set(),dg:new Set()};
@@ -3187,11 +3189,11 @@ const MR_DS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 function mrSemana(){
  const hoy=MR.D.hoy,d=new Date(hoy+'T12:00:00'),dow=(d.getDay()+6)%7,dias=[];
  for(let i=0;i<=dow;i++){const x=new Date(d);x.setDate(d.getDate()-dow+i);const k=x.toLocaleDateString('en-CA');dias.push({k,et:MR_DS[i],hab:esHabil(new Date(k+'T12:00:00'))})}
- const ult=new Map(),pon=(rows,ia,ik,ie)=>rows.slice().sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).forEach(f=>{const dia=new Date(f[0]).toLocaleDateString('en-CA');if(!dias.some(x=>x.k===dia))return;ult.set(ia+'|'+dia+'|'+f[ik]+(ie==null?'':'|'+f[ie]),{ej:f[3],acc:f[5],dia})});
+ const ult=new Map(),pon=(rows,ia,ik,ie)=>rows.slice().sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).forEach(f=>{const dia=new Date(f[0]).toLocaleDateString('en-CA');if(!dias.some(x=>x.k===dia))return;ult.set(ia+'|'+dia+'|'+f[ik]+(ie==null?'':'|'+f[ie]),{ej:f[3],acc:f[5],dia,x:ia+'|'+(ia==='g'?kSegG(f[6],f[7]):nrm(f[6]))})});
  pon(HG.rg||[],'g',6,7);pon(HG.rf||[],'f',6);
  const E=new Map(),ent=e=>{const k=mrKey(e);let a=E.get(k);if(!a){a={ej:e,n:{},t:0};E.set(k,a)}return a};
  mrFilas().forEach(f=>ent(f.ej));
- ult.forEach(v=>{if(!ejReal(v.ej)||(v.acc!=='Gestionada'&&v.acc!=='Reportado'))return;const a=ent(v.ej);a.n[v.dia]=(a.n[v.dia]||0)+1;a.t++});
+ ult.forEach(v=>{if(!ejReal(v.ej)||(v.acc!=='Gestionada'&&v.acc!=='Reportado')||(MR.D.X&&MR.D.X.has(v.x)))return;const a=ent(v.ej);a.n[v.dia]=(a.n[v.dia]||0)+1;a.t++});
  const F=[...E.values()].sort((a,b)=>a.t-b.t||a.ej.localeCompare(b.ej,'es')),T={n:{},t:0};
  F.forEach(a=>{dias.forEach(x=>{T.n[x.k]=(T.n[x.k]||0)+(a.n[x.k]||0)});T.t+=a.t});
  return{dias,F,T};
@@ -3204,7 +3206,7 @@ function mrHtmlSem(){
   +'<table class="mre mrw"><thead><tr><th>Ejecutivo</th>'+S.dias.map(x=>'<th class="n" title="'+fd(x.k)+'">'+dn(x)+'</th>').join('')+'<th class="n">Total</th></tr></thead><tbody>'
   +S.F.map(a=>'<tr><td>'+esc(a.ej)+'</td>'+S.dias.map(x=>celda(x,a.n[x.k])).join('')+'<td class="n"><b>'+a.t+'</b></td></tr>').join('')
   +'<tr class="tot"><td>Total equipo</td>'+S.dias.map(x=>'<td class="n">'+(S.T.n[x.k]||0)+'</td>').join('')+'<td class="n">'+S.T.t+'</td></tr></tbody></table>'
-  +'<p class="mrn">Gestiones por día: faltantes reportados y garantías gestionadas (incluye Proyectos, rezago inicial y lo marcado en nombre del ejecutivo). Ordenado de menos a más gestiones.</p>'
+  +'<p class="mrn">Gestiones por día: faltantes reportados y garantías gestionadas (sin Proyectos ni rezago inicial, igual que Hoy; incluye lo marcado en nombre del ejecutivo). Ordenado de menos a más gestiones.</p>'
   +'</div><div class="mrf"><div class="u" style="margin-top:0"><span>Actualizado '+hm(D.t)+'</span><button type="button" class="btn ex" data-mr="xls">Descargar Excel</button></div></div>';
 }
 const mrTabs=()=>'<div class="mrt" role="tablist"><button type="button" role="tab" class="'+(MR.tab==='sem'?'':'on')+'" aria-selected="'+(MR.tab!=='sem')+'" data-mr="t:hoy">Hoy</button><button type="button" role="tab" class="'+(MR.tab==='sem'?'on':'')+'" aria-selected="'+(MR.tab==='sem')+'" data-mr="t:sem">Semana</button></div>';
