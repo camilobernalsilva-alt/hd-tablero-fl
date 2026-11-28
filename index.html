@@ -602,6 +602,7 @@ article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 #mr details.mra.ok>summary{border-left-color:var(--ok)}
 #mr .mrl{padding:6px 12px 10px}
 #mr .mrl h4{margin:9px 0 3px;font-size:12.5px;text-transform:uppercase;letter-spacing:.3px;color:var(--mut)}
+#mr .mrl h4 a{text-transform:none;letter-spacing:0;font-size:12.5px}
 #mr .mri{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:5px 0;border-bottom:1px solid var(--sf2);font-size:13px}
 #mr .mri .dn{flex:1 1 100%;color:var(--mut);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #mr a.mrk{color:var(--ink);font-weight:700;text-decoration:underline;text-decoration-color:var(--or);text-underline-offset:2px;cursor:pointer}
@@ -3122,8 +3123,8 @@ function mrHtmlEj(ab){
  const srt=(a,b)=>(b.venc-a.venc)||((b.S.at||0)-(a.S.at||0))||a.id.localeCompare(b.id,'es',{numeric:true});
  const lg=!D.G?'<p class="mrn">No hay base de Garantías cargada.</p>':(!pg.length?'<p class="mrn">✓ No hay garantías por gestionar hoy.</p>'
   :[...GE.keys()].sort((a,b)=>ordE(a)-ordE(b)||GE.get(b).length-GE.get(a).length||a.localeCompare(b,'es')).map(k=>'<h4>'+esc(k)+' · '+GE.get(k).length+'</h4>'+GE.get(k).sort(srt).map(it).join('')).join(''))
-  +(rz.length?'<h4>Rezago inicial · '+rz.length+' (no cuenta en el avance)</h4>'+rz.sort(srt).map(it).join(''):'');
- const lp=pp.sort((a,b)=>a.id.localeCompare(b.id)).map(c=>'<div class="mri">'+mrLink('f',c.id)+(c.s==='hecho'?' <span class="sgt gs">✓ Reportado hoy</span>':'')+'<span class="dn" title="'+esc(c.dist)+'">'+esc(c.dist)+'</span></div>').join('');
+  +(rz.length?'<h4>Rezago inicial · '+rz.length+' (no cuenta en el avance) · <a class="mrk" href="#" data-mr="rez">Ver en Garantías →</a></h4>'+rz.sort(srt).map(it).join(''):'');
+ const lp='<p class="mrn"><a class="mrk" href="#" data-mr="proy">Ver '+(pp.length===1?'este pedido':'estos '+pp.length+' pedidos')+' en Faltantes →</a></p>'+pp.sort((a,b)=>a.id.localeCompare(b.id)).map(c=>'<div class="mri">'+mrLink('f',c.id)+(c.s==='hecho'?' <span class="sgt gs">✓ Reportado hoy</span>':'')+'<span class="dn" title="'+esc(c.dist)+'">'+esc(c.dist)+'</span></div>').join('');
  const sec=(k,cl,t,sub,body)=>'<details class="mra'+(cl?' '+cl:'')+'" data-k="'+k+'"><summary><b>'+t+'</b><span>'+sub+'</span></summary><div class="mrl">'+body+'</div></details>';
  return'<div class="mrh"><div><h2>'+(MR.ej?'Viendo a '+esc(ej):'Mi resumen')+'</h2><p>'+(MR.ej?'Resumen del ejecutivo · ':'')+fd(D.hoy)+'</p></div><button type="button" class="mrx" data-mr="x" aria-label="Cerrar Mi resumen" title="Cerrar">✕</button></div>'
   +'<div class="mrb">'+(MR.ej?'<button type="button" class="mrv" data-mr="eq">← Equipo</button>':'')
@@ -3151,9 +3152,16 @@ function mrHtmlEq(){
   +'<table class="mre"><thead><tr><th>Ejecutivo</th><th class="n" title="Faltantes por reportar">Falt.</th><th class="n" title="Garantías por gestionar">Gar.</th><th class="n" title="Garantías vencidas">Venc.</th><th>Avance</th></tr></thead><tbody>'
   +F.map((e,i)=>'<tr data-mi="'+i+'" tabindex="0" title="Ver el resumen de '+esc(e.ej)+'"><td>'+esc(e.ej)+'</td><td class="n">'+e.r.fp+'</td><td class="n">'+e.r.gp+'</td><td class="n'+(e.r.gv?' v':'')+'">'+e.r.gv+'</td><td>'+mrBar(e.r.pc,e.r.p?'':'ok')+e.r.pc+' %</td></tr>').join('')
   +'<tr class="tot"><td>Total equipo</td><td class="n">'+r.fp+'</td><td class="n">'+r.gp+'</td><td class="n">'+r.gv+'</td><td>'+r.pc+' %</td></tr></tbody></table>'
-  +(r.pr?'<p class="mrn">Informativo: '+mrPl(r.pr,'pedido','pedidos')+' de Proyectos (no cuentan en el avance).</p>':'')
-  +(r.rz?'<p class="mrn">Rezago inicial de garantías: '+r.rz+' (no cuenta en el avance).</p>':'')
+  +(r.pr?'<p class="mrn">Informativo: <a class="mrk" href="#" data-mr="proy" title="Ver en Faltantes los pedidos de Proyectos">'+mrPl(r.pr,'pedido','pedidos')+' de Proyectos</a> (no cuentan en el avance).</p>':'')
+  +(r.rz?'<p class="mrn">Rezago inicial de garantías: <a class="mrk" href="#" data-mr="rez" title="Ver en Garantías el rezago inicial">'+r.rz+'</a> (no cuenta en el avance).</p>':'')
   +'</div><div class="mrf"><div class="u" style="margin-top:0"><span>Actualizado '+hm(D.t)+'</span><button type="button" class="btn ex" data-mr="xls">Descargar Excel</button></div></div>';
+}
+/* Abre la consulta ya filtrada con lo que no cuenta en el avance: Proyectos (Faltantes) o el rezago inicial (Garantías); con ejecutivo si se está viendo a uno */
+function mrFiltra(tipo){
+ const C=mrCasos(),c=C.find(c=>tipo==='proy'?c.t==='f'&&c.proy:c.t==='g'&&c.s==='rez'),ej=mrPropio()&&c?c.ej:'';
+ if(tipo==='proy'){FS.f={'Familia Financiera':new Set(SEG.fam)};if(ej)FS.f['Ejecutivo']=new Set([ej]);FQ.f='';FQ.fChip='';ver('faltantes')}
+ else{FS.g=ej?{'Ejecutivo':new Set([ej])}:{};FQ.g='';FQ.gAdv={col:'',op:'',n1:'',n2:'',sg:'Rezago inicial'};ver('gar')}
+ mrCerrar(false);
 }
 function mrClic(e){
  const a=e.target.closest('[data-f],[data-g]');
@@ -3163,8 +3171,9 @@ function mrClic(e){
   mrCerrar(false);   /* se cierra para dejar libre la fila del caso (la casilla y la fecha quedan a la derecha) */
   return}
  const tr=e.target.closest('tr[data-mi]');if(tr){const F=mrFilas(),f=F[+tr.dataset.mi];if(f){MR.ej=f.ej;mrPanel()}return}
- const b=e.target.closest('[data-mr]');if(!b)return;const k=b.dataset.mr;
+ const b=e.target.closest('[data-mr]');if(!b)return;e.preventDefault();const k=b.dataset.mr;
  if(k==='x')mrCerrar(true);
+ else if(k==='proy'||k==='rez')mrFiltra(k);
  else if(k==='eq'){MR.ej='';mrPanel()}
  else if(k==='asig'){ver('equipo');mrCerrar(false);setTimeout(()=>{const s=$('#segadm');if(s)s.scrollIntoView({behavior:'smooth'})},900)}
  else if(k==='xls'){const F=mrFilas(),r=mrStats(MR.D.C.filter(c=>ejReal(c.ej)));
