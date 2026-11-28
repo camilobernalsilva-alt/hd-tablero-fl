@@ -627,6 +627,8 @@ article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 #mr table.mre th{text-align:left;font-size:12px;color:var(--mut);background:#fff;text-transform:none;letter-spacing:0;font-weight:700;padding:6px 4px;border-bottom:2px solid var(--ln);position:static}
 #mr table.mre td:last-child{white-space:nowrap}
 #mr table.mre td{padding:7px 4px;border-bottom:1px solid var(--sf2);vertical-align:middle}
+#mr .mrt{display:flex;margin-bottom:10px;border:1px solid var(--ln);background:#fff}#mr .mrt button{flex:1;font:inherit;font-weight:700;font-size:13px;padding:7px 4px;border:0;background:#fff;color:var(--mut);cursor:pointer}#mr .mrt button.on{background:var(--or);color:var(--ink)}
+#mr table.mrw tbody tr{cursor:default}#mr table.mrw tbody tr:hover td{background:none}#mr table.mrw .z{color:#9AA3A9}#mr table.mrw th.n{white-space:nowrap;padding-left:2px;padding-right:2px;font-size:11.5px}#mr table.mrw td.n{padding-left:2px;padding-right:2px}
 #mr table.mre .n{text-align:right}#mr table.mre td.v{color:var(--rd);font-weight:700}
 #mr table.mre tbody tr{cursor:pointer}#mr table.mre tbody tr:hover td{background:#FFF6EB}
 #mr table.mre tr.tot td{font-weight:700;background:var(--o20);cursor:default}
@@ -1754,7 +1756,7 @@ function cargarHG(forzar){
   if(!r.ok){HG.err=errMsg(r.error);return true}
   const M=new Map();(r.g||[]).forEach(f=>{const k=kSegG(f[6],f[7]);M.set(k,{t:f[0],quien:f[1],ej:f[3],en:f[4],acc:f[5],seg:/^\d{4}-\d\d-\d\d$/.test(String(f[11]||''))?String(f[11]):''})});
   const MF=new Map();(r.f||[]).forEach(f=>{const p=nrm(f[6]);let a=MF.get(p);if(!a){a=[];MF.set(p,a)}let o={};try{o=JSON.parse(f[10]||'{}')||{}}catch(e){}a.push({t:f[0],quien:f[1],ej:f[3],en:f[4],acc:f[5],arts:o})});HG.f=MF;
-  HG.last=M;HG.todos=!!r.todos;HG.ok=true;HG.err='';HG.t=Date.now();setTimeout(mrAct,0);return true;
+  HG.rg=r.g||[];HG.rf=r.f||[];HG.last=M;HG.todos=!!r.todos;HG.ok=true;HG.err='';HG.t=Date.now();setTimeout(mrAct,0);return true;
  }).catch(e=>{if(!e||!e.sesion)HG.err=ERR.red;return true}).finally(()=>{HG.p=null});
  return HG.p;
 }
@@ -3179,12 +3181,40 @@ function mrDet(k,all,r,F){
  }
  return'<div class="mrdet">'+h+'</div>';
 }
+/* Etapa 5 · Semana: gestiones por ejecutivo y día, de lunes a hoy, contadas del historial (garantía gestionada = 1, pedido reportado = 1; lo que se desmarca el mismo día no cuenta) */
+const mrKey=e=>nrm(e).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();
+const MR_DS=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+function mrSemana(){
+ const hoy=MR.D.hoy,d=new Date(hoy+'T12:00:00'),dow=(d.getDay()+6)%7,dias=[];
+ for(let i=0;i<=dow;i++){const x=new Date(d);x.setDate(d.getDate()-dow+i);const k=x.toLocaleDateString('en-CA');dias.push({k,et:MR_DS[i],hab:esHabil(new Date(k+'T12:00:00'))})}
+ const ult=new Map(),pon=(rows,ia,ik,ie)=>rows.slice().sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).forEach(f=>{const dia=new Date(f[0]).toLocaleDateString('en-CA');if(!dias.some(x=>x.k===dia))return;ult.set(ia+'|'+dia+'|'+f[ik]+(ie==null?'':'|'+f[ie]),{ej:f[3],acc:f[5],dia})});
+ pon(HG.rg||[],'g',6,7);pon(HG.rf||[],'f',6);
+ const E=new Map(),ent=e=>{const k=mrKey(e);let a=E.get(k);if(!a){a={ej:e,n:{},t:0};E.set(k,a)}return a};
+ mrFilas().forEach(f=>ent(f.ej));
+ ult.forEach(v=>{if(!ejReal(v.ej)||(v.acc!=='Gestionada'&&v.acc!=='Reportado'))return;const a=ent(v.ej);a.n[v.dia]=(a.n[v.dia]||0)+1;a.t++});
+ const F=[...E.values()].sort((a,b)=>a.t-b.t||a.ej.localeCompare(b.ej,'es')),T={n:{},t:0};
+ F.forEach(a=>{dias.forEach(x=>{T.n[x.k]=(T.n[x.k]||0)+(a.n[x.k]||0)});T.t+=a.t});
+ return{dias,F,T};
+}
+function mrHtmlSem(){
+ const D=MR.D,S=mrSemana(),dn=x=>x.et+' '+x.k.slice(8);
+ const celda=(x,v)=>x.hab?'<td class="n'+(v?'':' z')+'">'+(v||0)+'</td>':'<td class="n z" title="No es día hábil">—</td>';
+ return'<div class="mrh"><div><h2>Resumen del equipo</h2><p>Semana · '+fd(S.dias[0].k)+' a '+fd(D.hoy)+'</p></div><button type="button" class="mrx" data-mr="x" aria-label="Cerrar el resumen" title="Cerrar">✕</button></div>'
+  +'<div class="mrb">'+mrTabs()
+  +'<table class="mre mrw"><thead><tr><th>Ejecutivo</th>'+S.dias.map(x=>'<th class="n" title="'+fd(x.k)+'">'+dn(x)+'</th>').join('')+'<th class="n">Total</th></tr></thead><tbody>'
+  +S.F.map(a=>'<tr><td>'+esc(a.ej)+'</td>'+S.dias.map(x=>celda(x,a.n[x.k])).join('')+'<td class="n"><b>'+a.t+'</b></td></tr>').join('')
+  +'<tr class="tot"><td>Total equipo</td>'+S.dias.map(x=>'<td class="n">'+(S.T.n[x.k]||0)+'</td>').join('')+'<td class="n">'+S.T.t+'</td></tr></tbody></table>'
+  +'<p class="mrn">Gestiones por día: faltantes reportados y garantías gestionadas (incluye Proyectos, rezago inicial y lo marcado en nombre del ejecutivo). Ordenado de menos a más gestiones.</p>'
+  +'</div><div class="mrf"><div class="u" style="margin-top:0"><span>Actualizado '+hm(D.t)+'</span><button type="button" class="btn ex" data-mr="xls">Descargar Excel</button></div></div>';
+}
+const mrTabs=()=>'<div class="mrt" role="tablist"><button type="button" role="tab" class="'+(MR.tab==='sem'?'':'on')+'" aria-selected="'+(MR.tab!=='sem')+'" data-mr="t:hoy">Hoy</button><button type="button" role="tab" class="'+(MR.tab==='sem'?'on':'')+'" aria-selected="'+(MR.tab==='sem')+'" data-mr="t:sem">Semana</button></div>';
 function mrHtmlEq(){
+ if(MR.tab==='sem')return mrHtmlSem();
  const D=MR.D,all=D.C.filter(c=>ejReal(c.ej)),r=mrStats(all),F=mrFilas();
  const sin=D.C.filter(c=>!ejReal(c.ej)&&(c.s==='pend'||c.s==='rez')&&!c.proy).length;
  const pcP=r.tot?Math.round(r.p/r.tot*100):0,pcV=r.p?Math.round(r.gv/r.p*100):0;
  return'<div class="mrh"><div><h2>Resumen del equipo</h2><p>Hoy · '+fd(D.hoy)+(D.habil?'':' · no es día hábil (sin faltantes)')+'</p></div><button type="button" class="mrx" data-mr="x" aria-label="Cerrar el resumen" title="Cerrar">✕</button></div>'
-  +'<div class="mrb"><div class="mrc">'
+  +'<div class="mrb">'+mrTabs()+'<div class="mrc">'
   +mrCard('av','p','Avance del equipo',r.pc+' %',r.h.toLocaleString('es-CO')+' de '+r.tot.toLocaleString('es-CO'),r.pc)
   +mrCard('pe','','Pendientes',r.p.toLocaleString('es-CO'),'F '+r.fp+' · G '+r.gp,pcP)
   +mrCard('ve','r','Vencidas',r.gv.toLocaleString('es-CO'),pcV+' % de los pendientes',pcV)+'</div>'
@@ -3214,13 +3244,14 @@ function mrClic(e){
  const tr=e.target.closest('tr[data-mi]');if(tr){const F=mrFilas(),f=F[+tr.dataset.mi];if(f){MR.ej=f.ej;mrPanel()}return}
  const b=e.target.closest('[data-mr]');if(!b)return;e.preventDefault();const k=b.dataset.mr;
  if(k==='x')mrCerrar(true);
+ else if(k.slice(0,2)==='t:'){MR.tab=k.slice(2);MR.det='';mrPanel()}
  else if(k.slice(0,2)==='d:'){MR.det=MR.det===k.slice(2)?'':k.slice(2);mrPanel()}
  else if(k==='sinrep'){FS.f={};FQ.f='';FQ.fChip='sinrep';ver('faltantes');mrCerrar(false)}
  else if(k==='proy'||k==='rez')mrFiltra(k);
  else if(k==='eq'){MR.ej='';mrPanel()}
  else if(k==='asig'){ver('equipo');mrCerrar(false);setTimeout(()=>{const s=$('#segadm');if(s)s.scrollIntoView({behavior:'smooth'})},900)}
  else if(k==='xls'){const F=mrFilas(),r=mrStats(MR.D.C.filter(c=>ejReal(c.ej)));
-  exportar('Resumen_equipo',[{n:'Resumen del equipo',cab:['Ejecutivo','Faltantes por reportar','Garantías por gestionar','Vencidas','Gestionados hoy','Total del día','Avance (%)','Rezago inicial','Proyectos (informativo)'],
+  const S=mrSemana();exportar('Resumen_equipo',[{n:'Gestiones de la semana',cab:['Ejecutivo',...S.dias.map(x=>x.et+' '+fd(x.k)),'Total'],rows:[...S.F.map(a=>[a.ej,...S.dias.map(x=>a.n[x.k]||0),a.t]),['Total equipo',...S.dias.map(x=>S.T.n[x.k]||0),S.T.t]]},{n:'Resumen del equipo',cab:['Ejecutivo','Faltantes por reportar','Garantías por gestionar','Vencidas','Gestionados hoy','Total del día','Avance (%)','Rezago inicial','Proyectos (informativo)'],
    rows:[...F.map(e=>[e.ej,e.r.fp,e.r.gp,e.r.gv,e.r.h,e.r.tot,e.r.pc,e.r.rz,e.r.pr]),['Total equipo',r.fp,r.gp,r.gv,r.h,r.tot,r.pc,r.rz,r.pr]]}])}
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&MR.abierto&&$('#mr')&&$('#mr').contains(document.activeElement))mrCerrar(true);
