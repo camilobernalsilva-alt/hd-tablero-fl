@@ -614,10 +614,13 @@ article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 #mr .bar.ok i{background:var(--ok)}
 #mr .mrf .u{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--mut)}
 #mr .mrc{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
-#mr .mrc div{background:#fff;border:1px solid var(--ln);padding:10px 10px 8px;display:flex;flex-direction:column;gap:3px}
-#mr .mrc div.p{background:var(--hd);color:#fff;border-color:var(--hd)}
-#mr .mrc b{font-size:22px;line-height:1.1}#mr .mrc span{font-size:11.5px;line-height:1.3}#mr .mrc div.r b{color:var(--rd)}
-#mr .mrc .bar{margin-top:4px;height:5px}#mr .mrc div.p .bar{background:rgba(255,255,255,.25)}#mr .mrc div.r .bar i{background:var(--rd)}
+#mr .mrc div,#mr .mrc button{font:inherit;color:inherit;text-align:left;cursor:default;background:#fff;border:1px solid var(--ln);padding:10px 10px 8px;display:flex;flex-direction:column;gap:3px}
+#mr .mrc button{cursor:pointer}#mr .mrc button:hover{border-color:var(--or)}#mr .mrc button.sel{box-shadow:inset 0 -3px 0 var(--or)}
+#mr .mrc div.p,#mr .mrc button.p{background:var(--hd);color:#fff;border-color:var(--hd)}
+#mr .mrc b{font-size:22px;line-height:1.1}#mr .mrc span{font-size:11.5px;line-height:1.3}#mr .mrc .r b{color:var(--rd)}
+#mr .mrc .bar{margin-top:4px;height:5px}#mr .mrc .p .bar{background:rgba(255,255,255,.25)}#mr .mrc .r .bar i{background:var(--rd)}
+#mr .mrdet{background:#fff;border:1px solid var(--ln);border-top:3px solid var(--or);padding:4px 12px 10px;margin:-4px 0 12px}#mr .mrdet h4{margin:10px 0 4px;font-size:12px;color:var(--mut);text-transform:uppercase;letter-spacing:.3px}
+#mr .mrd{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:13px;margin-bottom:6px}#mr .mrd .bar{grid-column:1/3;height:6px}#mr .mrdet details.mra{border:0;border-bottom:1px solid var(--sf2);margin:0}
 #mr .mrs{display:flex;align-items:center;gap:8px;background:#FFF1E0;border-left:4px solid var(--or);padding:8px 10px;font-size:13px;margin-bottom:12px}
 #mr .mrs button{margin-left:auto;background:var(--or);color:var(--ink);border:0;font:inherit;font-weight:700;font-size:12.5px;padding:5px 10px;cursor:pointer}
 #mr table.mre{width:100%;border-collapse:collapse;font-size:13px}
@@ -3035,16 +3038,18 @@ const mrLS=(k,v)=>{try{if(v===undefined)return localStorage.getItem(k);localStor
 const mrSS=(k,v)=>{try{if(v===undefined)return sessionStorage.getItem(k);sessionStorage.setItem(k,v)}catch(e){return null}};
 function mrAct(){clearTimeout(MR.q);MR.q=setTimeout(mrCorrer,350)}
 /* Casos del día: faltantes por pedido y garantías por garantía + estado */
+/* Quién registró hoy el reporte del pedido, solo si lo hizo en nombre del ejecutivo (si no, vacío) */
+function mrEnF(ped,hoy){const a=HG.f.get(nrm(ped))||[];for(let i=a.length-1;i>=0;i--){if(new Date(a[i].t).toLocaleDateString('en-CA')===hoy)return a[i].acc==='Reportado'&&a[i].en?a[i].quien:''}return''}
 async function mrCalcular(){
  const hoy=hoyK(),habil=esHabil(new Date(hoy+'T12:00:00'));
  const [F,G]=await Promise.all([datosFal(),datosGar()]);
  const C=[];
  if(F){const P=new Map();F.L.forEach(x=>{if(!x.dist||x.dist==='No está en Pending')return;let a=P.get(x.pedido);if(!a){a=[];P.set(x.pedido,a)}a.push(x)});
   P.forEach((A,ped)=>{const x=A[0],e=estPedF({ped,lineas:lineasRep(A)},hoy);
-   C.push({t:'f',id:ped,ej:x.ag,dist:String(x.dist),proy:esProyF(x),s:e==='rep'?'hecho':habil?'pend':'',cam:e==='cambio'})})}
+   C.push({t:'f',id:ped,ej:x.ag,dist:String(x.dist),proy:esProyF(x),s:e==='rep'?'hecho':habil?'pend':'',cam:e==='cambio',en:e==='rep'?mrEnF(ped,hoy):''})})}
  if(G){const V=new Set();G.I.forEach(y=>{const k=kSegG(y.id,y.est);if(V.has(k))return;V.add(k);const S=segGar(y,hoy);
   const s=S.s==='Gestionada'?(S.hoyG&&!S.rez0?'hecho':''):S.s==='Vencida'||S.s==='Vence hoy'||S.s==='Seguimiento hoy'?'pend':S.s==='Rezago inicial'?'rez':'';
-  if(s)C.push({t:'g',id:y.id,ej:y.ej,dist:y.dist,est:y.est,S,s,venc:S.s==='Vencida'})})}
+  if(s)C.push({t:'g',id:y.id,ej:y.ej,dist:y.dist,est:y.est,S,s,venc:S.s==='Vencida',en:s==='hecho'&&S.l&&S.l.en?S.l.quien:''})})}
  return{C,hoy,habil,t:Date.now(),F:!!F,G:!!G};
 }
 function mrStats(C){
@@ -3139,15 +3144,51 @@ function mrFilas(){
  C.forEach(c=>{if(!ejReal(c.ej))return;const k=nrm(c.ej).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();let e=E.get(k);if(!e){e={ej:c.ej,C:[]};E.set(k,e)}e.C.push(c)});
  return[...E.values()].map(e=>({ej:e.ej,r:mrStats(e.C)})).filter(e=>e.r.tot>0||e.r.pr>0||e.r.rz>0).sort((a,b)=>a.r.pc-b.r.pc||b.r.p-a.r.p||a.ej.localeCompare(b.ej,'es'));
 }
+const mrCard=(k,cl,t,b,sub,pc)=>'<button type="button" class="'+cl+(MR.det===k?' sel':'')+'" data-mr="d:'+k+'" aria-expanded="'+(MR.det===k)+'" title="Ver el detalle de '+t.toLowerCase()+'"><span>'+t+'</span><b>'+b+'</b><span>'+sub+'</span>'+mrBar(pc)+'</button>';
+/* Detalle que se abre debajo de las tarjetas del administrador: av = avance, pe = pendientes, ve = vencidas */
+function mrDet(k,all,r,F){
+ if(!k)return'';
+ const pc=(h,t)=>t?Math.floor(h/t*100):100,D=MR.D;
+ const srt=(a,b)=>(b.venc-a.venc)||((b.S.at||0)-(a.S.at||0))||a.id.localeCompare(b.id,'es',{numeric:true});
+ const it=c=>'<div class="mri">'+mrLink('g',c.id)+' '+segTag(c,c.S)+'<span class="dn" title="'+esc(c.ej+' · '+c.dist)+'">'+esc(c.ej)+' · '+esc(c.dist)+'</span></div>';
+ const fila=(t,h,tt)=>'<div class="mrd"><span>'+t+'</span><b>'+h+' de '+tt+' · '+pc(h,tt)+' %</b>'+mrBar(pc(h,tt),tt&&h===tt?'ok':'')+'</div>';
+ const por=(P,pref)=>{const E=new Map();P.forEach(c=>{const e=c.est;let a=E.get(e);if(!a){a=[];E.set(e,a)}a.push(c)});
+  return[...E.entries()].sort((a,b)=>b[1].filter(c=>c.venc).length-a[1].filter(c=>c.venc).length||b[1].length-a[1].length||a[0].localeCompare(b[0],'es'))
+   .map(([e,A])=>'<details class="mra" data-k="d'+pref+esc(e)+'"><summary><b>'+esc(e)+'</b><span>'+A.length+(A.some(c=>c.venc)?' · <span style="color:var(--rd);font-weight:700">'+A.filter(c=>c.venc).length+' vencidas</span>':'')+'</span></summary><div class="mrl">'+A.sort(srt).map(it).join('')+'</div></details>').join('')};
+ let h='';
+ if(k==='av'){
+  const FE=F.filter(e=>e.r.tot>0),en=new Map();
+  all.forEach(c=>{if(c.s==='hecho'&&c.en){const q=c.ej+'|'+c.en;en.set(q,(en.get(q)||0)+1)}});
+  h='<h4>Por tipo de caso</h4>'+fila('Faltantes reportados',r.fh,r.fh+r.fp)+fila('Garantías gestionadas',r.gh,r.gh+r.gp);
+  if(FE.length>1){const lo=FE[0],hi=FE[FE.length-1],ln=(t,e)=>'<div class="mri"><span>'+t+': <b>'+esc(e.ej)+'</b> · '+e.r.pc+' %'+(e.r.p?' · '+mrPl(e.r.p,'pendiente','pendientes'):' · al día')+'</span></div>';
+   h+='<h4>Quién avanzó</h4>'+ln('Menos avance',lo)+ln('Más avance',hi)}
+  h+='<h4>Marcados en nombre del ejecutivo</h4>'+(en.size?[...en.entries()].sort((a,b)=>b[1]-a[1]).map(([q,n])=>{const p=q.split('|');return'<div class="mri"><span><b>'+esc(p[1])+'</b> marcó '+mrPl(n,'caso','casos')+' de '+esc(p[0])+'</span></div>'}).join(''):'<p class="mrn">Hoy nadie ha marcado casos en nombre de un ejecutivo.</p>');
+ }else if(k==='pe'){
+  const pg=all.filter(c=>c.t==='g'&&c.s==='pend').map(c=>Object.assign({},c,{est:c.S.s==='Seguimiento hoy'?'Seguimiento para hoy':c.est}));
+  h='<h4>Faltantes por reportar</h4>'+(!D.F?'<p class="mrn">No hay base de Faltantes cargada.</p>':!D.habil?'<p class="mrn">Hoy no es día hábil: no hay faltantes por reportar.</p>'
+   :'<div class="mri"><span><b>'+mrPl(r.fp,'pedido','pedidos')+'</b> de '+mrPl(r.df.size,'distribuidor','distribuidores')+'</span>'+(r.fp?' <a class="mrk" href="#" data-mr="sinrep">Ver los '+r.fp+' en Faltantes →</a>':'')+'</div>')
+   +'<h4>Garantías por estado · '+pg.length+'</h4>'+(!D.G?'<p class="mrn">No hay base de Garantías cargada.</p>':pg.length?por(pg,'p'):'<p class="mrn">✓ No hay garantías por gestionar hoy.</p>')
+   +(r.pr?'<p class="mrn">Informativo: '+mrPl(r.pr,'pedido','pedidos')+' de Proyectos (no cuentan).</p>':'');
+ }else{
+  const vg=all.filter(c=>c.t==='g'&&c.venc),E=new Map();vg.forEach(c=>{E.set(c.ej,(E.get(c.ej)||0)+1)});
+  if(!vg.length)h='<p class="mrn">✓ No hay garantías vencidas.</p>';
+  else{const old=vg.slice().sort((a,b)=>(b.S.at||0)-(a.S.at||0)||a.id.localeCompare(b.id,'es',{numeric:true}))[0];
+   h='<h4>Por estado · '+vg.length+'</h4>'+por(vg,'v')
+    +'<h4>Por ejecutivo</h4>'+[...E.entries()].sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'es')).map(([e,n])=>'<div class="mri"><span><b>'+esc(e)+'</b> · '+n+'</span></div>').join('')
+    +'<h4>La más antigua</h4>'+it(old)}
+ }
+ return'<div class="mrdet">'+h+'</div>';
+}
 function mrHtmlEq(){
  const D=MR.D,all=D.C.filter(c=>ejReal(c.ej)),r=mrStats(all),F=mrFilas();
  const sin=D.C.filter(c=>!ejReal(c.ej)&&(c.s==='pend'||c.s==='rez')&&!c.proy).length;
  const pcP=r.tot?Math.round(r.p/r.tot*100):0,pcV=r.p?Math.round(r.gv/r.p*100):0;
  return'<div class="mrh"><div><h2>Resumen del equipo</h2><p>Hoy · '+fd(D.hoy)+(D.habil?'':' · no es día hábil (sin faltantes)')+'</p></div><button type="button" class="mrx" data-mr="x" aria-label="Cerrar el resumen" title="Cerrar">✕</button></div>'
   +'<div class="mrb"><div class="mrc">'
-  +'<div class="p"><span>Avance del equipo</span><b>'+r.pc+' %</b><span>'+r.h.toLocaleString('es-CO')+' de '+r.tot.toLocaleString('es-CO')+'</span>'+mrBar(r.pc)+'</div>'
-  +'<div><span>Pendientes</span><b>'+r.p.toLocaleString('es-CO')+'</b><span>F '+r.fp+' · G '+r.gp+'</span>'+mrBar(pcP)+'</div>'
-  +'<div class="r"><span>Vencidas</span><b>'+r.gv.toLocaleString('es-CO')+'</b><span>'+pcV+' % de los pendientes</span>'+mrBar(pcV)+'</div></div>'
+  +mrCard('av','p','Avance del equipo',r.pc+' %',r.h.toLocaleString('es-CO')+' de '+r.tot.toLocaleString('es-CO'),r.pc)
+  +mrCard('pe','','Pendientes',r.p.toLocaleString('es-CO'),'F '+r.fp+' · G '+r.gp,pcP)
+  +mrCard('ve','r','Vencidas',r.gv.toLocaleString('es-CO'),pcV+' % de los pendientes',pcV)+'</div>'
+  +mrDet(MR.det,all,r,F)
   +(sin?'<div class="mrs"><span><b>'+sin+'</b> '+(sin===1?'caso sin responsable':'casos sin responsable')+'</span><button type="button" data-mr="asig">Asignar</button></div>':'')
   +'<table class="mre"><thead><tr><th>Ejecutivo</th><th class="n" title="Faltantes por reportar">Falt.</th><th class="n" title="Garantías por gestionar">Gar.</th><th class="n" title="Garantías vencidas">Venc.</th><th>Avance</th></tr></thead><tbody>'
   +F.map((e,i)=>'<tr data-mi="'+i+'" tabindex="0" title="Ver el resumen de '+esc(e.ej)+'"><td>'+esc(e.ej)+'</td><td class="n">'+e.r.fp+'</td><td class="n">'+e.r.gp+'</td><td class="n'+(e.r.gv?' v':'')+'">'+e.r.gv+'</td><td>'+mrBar(e.r.pc,e.r.p?'':'ok')+e.r.pc+' %</td></tr>').join('')
@@ -3173,6 +3214,8 @@ function mrClic(e){
  const tr=e.target.closest('tr[data-mi]');if(tr){const F=mrFilas(),f=F[+tr.dataset.mi];if(f){MR.ej=f.ej;mrPanel()}return}
  const b=e.target.closest('[data-mr]');if(!b)return;e.preventDefault();const k=b.dataset.mr;
  if(k==='x')mrCerrar(true);
+ else if(k.slice(0,2)==='d:'){MR.det=MR.det===k.slice(2)?'':k.slice(2);mrPanel()}
+ else if(k==='sinrep'){FS.f={};FQ.f='';FQ.fChip='sinrep';ver('faltantes');mrCerrar(false)}
  else if(k==='proy'||k==='rez')mrFiltra(k);
  else if(k==='eq'){MR.ej='';mrPanel()}
  else if(k==='asig'){ver('equipo');mrCerrar(false);setTimeout(()=>{const s=$('#segadm');if(s)s.scrollIntoView({behavior:'smooth'})},900)}
