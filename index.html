@@ -1165,7 +1165,7 @@ function lineasRep(A){
 }
 function cierreRep(Ls,hoy){
  const fe=Ls.filter(l=>l.f.d);
- if(!fe.length)return'Su pedido se encuentra siendo gestionado por las áreas internas. Apenas tengamos una fecha concreta de solución, se la informaremos.';
+ if(!fe.length)return'Su pedido se encuentra siendo gestionado por las áreas internas. Apenas tengamos una fecha concreta de solución, la estaremos informando por este medio.';
  const nac=fe.filter(l=>!l.f.e);
  if(!nac.length)return'Para este material ya se generó la orden de compra.';
  const lim=new Date(hoy+'T12:00:00');lim.setDate(lim.getDate()+4);const kl=lim.toLocaleDateString('en-CA');
