@@ -526,6 +526,11 @@ article.drop{outline:3px dashed var(--or);outline-offset:-3px}
 .btn.qf:hover{background:var(--ink);color:#fff}
 .prm{display:flex;flex-direction:column;gap:2px;font-size:13px;white-space:nowrap}
 .prm .chk{display:flex;align-items:center;gap:6px}
+.ejin{font:inherit;font-size:13px;padding:6px 8px;min-height:34px;border:1px solid var(--ln);border-radius:0;min-width:190px;background:#fff}
+.ejin:disabled{background:#F3F4F5;color:var(--mut)}
+.ejav{display:block;font-size:11.5px;color:#971B2F;margin-top:3px;font-weight:600}
+.segfam{max-height:240px;overflow:auto;margin:10px 0;gap:6px}
+#pf-ej{display:block;margin-top:2px}
 </style>
 </head>
 <body>
@@ -1386,10 +1391,10 @@ async function datosGar(){
   const id=nrm(v(r,'idGarantia'));if(!id)continue;
   const ped=nrm(v(r,'pedido')),fe=v(r,'FechaEstado'),t=nrm(v(r,'tipo'));
   const dias=fe instanceof Date?habiles(dk(fe),ref):'';
-  const nf=nrm(v(r,'NomeFantasia')),cod=nrm(nf.split('-')[0])||nrm(v(r,'Cliente')),e=eje.get(kCod(cod))||{};
+  const nf=nrm(v(r,'NomeFantasia')),cod=nrm(nf.split('-')[0])||nrm(v(r,'Cliente')),e=eje.get(kCod(cod))||{},asg=e.ag?null:SEG.asig.get(kCod(cod));
   const est0=nrm(v(r,'Estado'));
   I.push({k:id+'|'+ped+'|'+dias,id,ped,dist:nf,cod,dias,fe:fe instanceof Date?dk(fe):'',est:est0,al:alertaGar(est0,dias)?'Fuera de tiempo':'En tiempo',neg:nrm(v(r,'Negocio')),
-   def:t==='0'?'Garantia':t==='1'?'Reparacion':(t||'Sin dato'),ej:e.ag||(!ms?'Sin dato':e.ms?'Vacío en BD-Master':'No está en BD-Master'),ge:e.ge||'Sin dato',gu:mGu.g.get(id)||'',
+   def:t==='0'?'Garantia':t==='1'?'Reparacion':(t||'Sin dato'),ej:e.ag||(asg?asg.e:(!ms?'Sin dato':e.ms?'Vacío en BD-Master':'No está en BD-Master')),ge:e.ge||'Sin dato',gu:mGu.g.get(id)||'',
    fecha:v(r,'fecha') instanceof Date?dk(v(r,'fecha')):'',cf:nrm(v(r,'clienteFinal')),fac:nrm(v(r,'factura')),
    it:v(r,'item'),pr:nrm(v(r,'desProd')),lin:nrm(v(r,'DLinea'))||'Sin línea',can:v(r,'cantidad'),pb:nrm(v(r,'problema')),an:nrm(v(r,'analisis')),ip:v(r,'itemPed')});
  }
@@ -2000,13 +2005,13 @@ async function rTab(){
 const APPS_SCRIPT_URL="https://script.google.com/macros/s/AKfycbxZmX2yQbqsC3MBd9ZRiFllS0RcGrxS_kG5ri2ARy7zA5vPr70J9ckIXDRG-AzxwAov/exec";
 let TAB='carga';
 const TAM=40000,PARTE=25,SYNC_MIN=3,DOM_RE=/^[a-z0-9._%+-]+@hdlao\.com$/i;
-const KS={auth:'hdfl_auth',meta:'hdfl_meta',dirty:'hdfl_dirty',team:'hdfl_team'};
+const KS={auth:'hdfl_auth',meta:'hdfl_meta',dirty:'hdfl_dirty',team:'hdfl_team',seg:'hdfl_seg'};
 const SYNC_RE=/^(pending|faltantes|faltantes_prev|intaken|garantias|cartera|guias|master|inventario|equiv|drive|negocios|inv_dias|inv_\d{4}-\d\d-\d\d|comentarios|tablas)$/;
 const MEZCLA={comentarios:1,tablas:1};
 const NOM_BASE={pending:'Pending',faltantes:'Faltantes (hoy)',faltantes_prev:'Faltantes (día anterior)',intaken:'Intaken por día',garantias:'Garantías',cartera:'Seguimiento de cartera',guias:'Guías de despachos',drive:'DRIVE CAC & ALMACEN',negocios:'Informe de negocios (transportadora)',master:'BD-Master',inventario:'Inventarios (último saldo)',equiv:'Equivalencias de telas',inv_dias:'Inventarios (lista de días)',comentarios:'Comentarios de Pending',tablas:'Tablas (zonas, estados, dealers)'};
 const nomBase=k=>NOM_BASE[k]||(k.startsWith('inv_')?'Inventarios · '+k.slice(4):k);
 const SY={url:APPS_SCRIPT_URL,st:'local',msg:'',busy:false,again:false,last:0,pollT:null,saveT:null,items:[],nuevos:0,needDraw:false};
-const AU={token:'',email:'',name:'',admin:false,owner:false,created:'',last:'',perms:{}};
+const AU={token:'',email:'',name:'',admin:false,owner:false,created:'',last:'',perms:{},ej:''};
 /* Permisos de la persona (los da el administrador en Perfil > Administración): carga, tablas, perfil. Sin conexión al servidor todo está permitido. */
 const perm=p=>!needAuth()||!!AU.admin||!!(AU.perms&&AU.perms[p]);
 const puedeSubir=k=>k==='comentarios'||(k==='tablas'?perm('tablas'):perm('carga'));
@@ -2016,10 +2021,16 @@ const metaS=m=>LS.set(KS.meta,JSON.stringify(m));
 const dirtyG=()=>{try{return new Set(JSON.parse(LS.get(KS.dirty)||'[]'))}catch(e){return new Set()}};
 const dirtyS=s=>LS.set(KS.dirty,JSON.stringify([...s]));
 const needAuth=()=>!!SY.url;
+/* Seguimiento de ejecutivos (v48): ejecutivo de las cuentas sin "Empleado responsable" en BD-Master (asig, por cuenta) y familias financieras
+   que en Faltantes son Proyectos (fam). Llegan del servidor con cada sincronización y se guardan en este navegador.
+   srv=false: el Code.gs publicado todavía no tiene el seguimiento (hay que pegar el nuevo y publicar una versión). */
+const SEG={asig:new Map(),fam:['Proyectos'],srv:false};
+function segPoner(s){SEG.srv=!!s;if(!s)return;SEG.asig=new Map((s.asig||[]).map(x=>[kCod(x.c),x]));SEG.fam=Array.isArray(s.fam)?s.fam.map(String):['Proyectos'];LS.set(KS.seg,JSON.stringify(s))}
+try{const s=JSON.parse(LS.get(KS.seg)||'null');if(s)segPoner(s)}catch(e){}
 const syOn=()=>!!(SY.url&&AU.token);
 try{Object.assign(AU,JSON.parse(LS.get(KS.auth)||'{}'))}catch(e){}
 const auKeep=()=>{if(AU.token)LS.set(KS.auth,JSON.stringify(AU));else LS.del(KS.auth)};
-const ERR={clave:'La clave del equipo no es correcta.',sin_clave:'El servidor no tiene la clave del equipo configurada (propiedad CLAVE).',dominio:'Solo se permiten correos @hdlao.com.',nombre:'Escribe tu nombre completo.',contrasena:'La contraseña debe tener al menos 8 caracteres.',existe:'Ya existe una cuenta con ese correo. Ingresa con tu contraseña.',credenciales:'El correo o la contraseña no son correctos.',bloqueado:'Demasiados intentos fallidos. Espera 10 minutos e inténtalo de nuevo.',inactivo:'Tu cuenta está desactivada. Habla con el administrador.',ocupado:'El servidor está ocupado. Inténtalo de nuevo en unos segundos.',permiso:'No tienes permiso de administrador.',dueno:'Esa acción no se puede hacer sobre esta cuenta.',no_existe:'Ese correo no está registrado.',servidor:'Error del servidor.',formato:'El servidor no entendió la solicitud.',incompleto:'La carga llegó incompleta. Inténtalo de nuevo.',operacion:'El servidor tiene una versión anterior del script. Pega el Code.gs nuevo en Apps Script y publica una nueva versión de la implementación.',red:'No se pudo conectar con el servidor. Revisa tu conexión a internet.',pendiente:'Tu cuenta todavía está pendiente de aprobación. Un administrador debe aprobarla antes de que puedas ingresar.',bloqueado_clave:'Hubo demasiados intentos con la clave del equipo. Espera 10 minutos e inténtalo de nuevo.',permiso_base:'No tienes permiso para esta base. Habla con el administrador.',sin_referencias:'El servidor no tiene las tablas de consulta. Agrega el archivo Referencias.gs en Apps Script y publica una nueva versión.',codigo:'El código no es correcto.',codigo_vencido:'El código venció o ya no es válido. Vuelve a crear la cuenta para recibir uno nuevo.',espera:'Espera un minuto antes de pedir otro código.',demasiados_codigos:'Pediste demasiados códigos. Inténtalo de nuevo en una hora.',correo:'No se pudo enviar el correo con el código. Inténtalo de nuevo en unos minutos o avisa al administrador.'};
+const ERR={clave:'La clave del equipo no es correcta.',sin_clave:'El servidor no tiene la clave del equipo configurada (propiedad CLAVE).',dominio:'Solo se permiten correos @hdlao.com.',nombre:'Escribe tu nombre completo.',contrasena:'La contraseña debe tener al menos 8 caracteres.',existe:'Ya existe una cuenta con ese correo. Ingresa con tu contraseña.',credenciales:'El correo o la contraseña no son correctos.',bloqueado:'Demasiados intentos fallidos. Espera 10 minutos e inténtalo de nuevo.',inactivo:'Tu cuenta está desactivada. Habla con el administrador.',ocupado:'El servidor está ocupado. Inténtalo de nuevo en unos segundos.',permiso:'No tienes permiso de administrador.',dueno:'Esa acción no se puede hacer sobre esta cuenta.',no_existe:'Ese correo no está registrado.',servidor:'Error del servidor.',formato:'El servidor no entendió la solicitud.',incompleto:'La carga llegó incompleta. Inténtalo de nuevo.',operacion:'El servidor tiene una versión anterior del script. Pega el Code.gs nuevo en Apps Script y publica una nueva versión de la implementación.',red:'No se pudo conectar con el servidor. Revisa tu conexión a internet.',pendiente:'Tu cuenta todavía está pendiente de aprobación. Un administrador debe aprobarla antes de que puedas ingresar.',bloqueado_clave:'Hubo demasiados intentos con la clave del equipo. Espera 10 minutos e inténtalo de nuevo.',permiso_base:'No tienes permiso para esta base. Habla con el administrador.',sin_referencias:'El servidor no tiene las tablas de consulta. Agrega el archivo Referencias.gs en Apps Script y publica una nueva versión.',codigo:'El código no es correcto.',codigo_vencido:'El código venció o ya no es válido. Vuelve a crear la cuenta para recibir uno nuevo.',espera:'Espera un minuto antes de pedir otro código.',demasiados_codigos:'Pediste demasiados códigos. Inténtalo de nuevo en una hora.',correo:'No se pudo enviar el correo con el código. Inténtalo de nuevo en unos minutos o avisa al administrador.',sin_ejecutivo:'Tu usuario no tiene un ejecutivo asignado. Pídele al administrador que te lo asigne en Perfil > Administración.',otro_ejecutivo:'Solo puedes registrar gestiones de tu propio ejecutivo.'};
 const errMsg=c=>ERR[c]||('Error: '+c);
 async function postSrv(body){
  const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),120000);
@@ -2156,6 +2167,7 @@ async function syCiclo(manual,todo){
   if(!r.ok)throw{codigo:r.error};
   SY.items=r.items;
   if(r.user)ponerUsuario(r.user);   /* permisos al día (el administrador pudo cambiarlos) */
+  segPoner(r.seg);   /* asignaciones de cuentas y familias de Proyectos */
   const rem=new Map(r.items.map(x=>[x.k,x])),d=dirtyG();
   /* 1. Subir lo que se cargó aquí */
   for(const k of [...d]){
@@ -2240,7 +2252,7 @@ onPut=(k,v)=>{
 async function limpiarLocal(){
  const ks=await idb('readonly',st=>st.getAllKeys())||[];
  for(const k of ks){if(SYNC_RE.test(k)||String(k).startsWith('_snap_')||k==='_ref')await putRaw(k,null)}
- [KS.meta,KS.dirty].forEach(k=>LS.del(k));
+ [KS.meta,KS.dirty,KS.seg].forEach(k=>LS.del(k));SEG.asig=new Map();SEG.fam=['Proyectos'];SEG.srv=false;
  aplicarSemilla();
 }
 function aplicarSemilla(){Object.keys(SEED0).forEach(k=>{SEED0[k]=[];SEED[k]=[]});Object.keys(EQUIV).forEach(k=>delete EQUIV[k])}
@@ -2258,7 +2270,7 @@ async function cerrarSesion(){
 }
 function ponerUsuario(u){
  if(!u)return;AU.email=u.email;AU.name=u.name;AU.admin=!!u.admin;AU.owner=!!u.owner;AU.created=u.created;AU.last=u.last;
- AU.perms=Object.assign({},u.perms||{});auKeep();
+ AU.perms=Object.assign({},u.perms||{});AU.ej=String(u.ej||'');auKeep();
   const w=document.getElementById('rail-user');if(w)w.textContent=AU.name||AU.email;
  if(typeof pintarNav==='function')pintarNav();
 }
@@ -2358,7 +2370,7 @@ async function rEquipo(){
  const filas=SY.items.filter(x=>SYNC_RE.test(x.k)&&!x.k.startsWith('inv_2')).sort((a,b)=>nomBase(a.k).localeCompare(nomBase(b.k),'es'));
  const dias=SY.items.filter(x=>x.k.startsWith('inv_2')).length;
  const pwBox='<details class="pw"'+(perm('perfil')?'':' open')+'><summary>Cambiar contraseña</summary><div class="ffs"><label class="fld"><span>Contraseña actual</span><span class="pwwrap"><input type="password" id="pfold" autocomplete="current-password">'+ojoBtn+'</span></label><label class="fld"><span>Nueva contraseña</span><span class="pwwrap"><input type="password" id="pfnew" autocomplete="new-password">'+ojoBtn+'</span></label><label class="fld"><span>Confirma la nueva contraseña</span><span class="pwwrap"><input type="password" id="pfnew2" autocomplete="new-password">'+ojoBtn+'</span></label><button type="button" class="btn sec" id="pfpass">Cambiar contraseña</button></div></details>';
- const cabPerfil='<div class="prof"><span class="avatar" aria-hidden="true">'+esc(ini(AU.name||AU.email))+'</span><span class="pt"><b>'+esc(AU.name)+'</b><span class="est">'+esc(AU.email)+'</span><span class="rolechip'+(AU.admin?' adm':'')+'">'+(AU.owner?'Administrador principal':AU.admin?'Administrador':'Usuario')+'</span></span></div>';
+ const cabPerfil='<div class="prof"><span class="avatar" aria-hidden="true">'+esc(ini(AU.name||AU.email))+'</span><span class="pt"><b>'+esc(AU.name)+'</b><span class="est">'+esc(AU.email)+'</span><span class="rolechip'+(AU.admin?' adm':'')+'">'+(AU.owner?'Administrador principal':AU.admin?'Administrador':'Usuario')+'</span><span class="est" id="pf-ej">'+(AU.ej?'Tu ejecutivo: <b>'+esc(AU.ej)+'</b>':'Sin ejecutivo asignado')+'</span></span></div>';
  /* Sin el permiso "perfil" la persona solo ve su cuenta y el cambio de contraseña */
  if(!perm('perfil')){
   el.innerHTML='<h2 class="tt">Mi perfil</h2><div class="grid eq"><article class="card">'+cabPerfil
@@ -2387,7 +2399,7 @@ async function rEquipo(){
  +(dias?'<tr><td>Inventarios (historial)</td><td colspan="5">'+dias+(dias===1?' día guardado':' días guardados')+'</td></tr>':'')
  +'</tbody></table></div><div id="adm"></div>';
  enlazarEquipo();
- if(AU.admin)rAdm();
+ if(AU.admin){ADM.ejs=null;rAdm()}   /* la lista de ejecutivos se relee de BD-Master cada vez que se abre Perfil */
 }
 function enlazarEquipo(){
  const g0=id=>document.getElementById(id),nada={},g=id=>g0(id)||nada;
@@ -2419,8 +2431,8 @@ function enlazarEquipo(){
 async function cambiarPw(){const g=id=>document.getElementById(id),o=g('pfold').value,n=g('pfnew').value,n2=g('pfnew2').value;if(n.length<8){profMsg=['err',ERR.contrasena];return rEquipo()}if(n!==n2){profMsg=['err','Las contraseñas nuevas no coinciden.'];return rEquipo()}try{const r=await api({op:'profile',password:o,newPassword:n});profMsg=r.ok?['ok','Contraseña actualizada.']:['err',r.error==='credenciales'?'La contraseña actual no es correcta.':errMsg(r.error)]}catch(e){if(!e||!e.sesion)profMsg=['err',ERR.red]}rEquipo()}
 
 /* ---------- Administración (solo administradores) ---------- */
-const PERM_UI=[['carga','Carga'],['tablas','Tablas'],['perfil','Perfil completo']];
-const ADM={users:null,pend:[],loading:false,err:'',temp:null,q:'',conf:null};
+const PERM_UI=[['carga','Carga'],['tablas','Tablas'],['perfil','Perfil completo'],['seguimiento','Seguimiento']];
+const ADM={users:null,pend:[],loading:false,err:'',temp:null,q:'',conf:null,ejs:null};
 async function admCargar(op,extra){
  if(!syOn())return;ADM.loading=true;ADM.err='';
  try{const r=await api(Object.assign({op:op||'users'},extra||{}));if(r.ok){ADM.users=r.users;ADM.pend=r.pendingAdmins||[];if(r.tempPassword)ADM.temp=[r.tempFor,r.tempPassword]}else ADM.err=errMsg(r.error)}catch(e){if(!e||!e.sesion)ADM.err=ERR.red}
@@ -2441,21 +2453,95 @@ function rAdm(){
  +'<form class="row" id="admadd"><label class="fld"><span>Agregar administrador (correo @hdlao.com)</span><input type="email" id="admmail" placeholder="nombre.apellido@hdlao.com"></label><button class="btn" type="submit">Agregar</button></form>'
  +(ADM.pend.length?'<p class="est">Administradores sin registrarse aún: '+ADM.pend.map(esc).join(', ')+'</p>':'')
  +'<div class="row"><label class="fld"><span>Buscar</span><input type="search" id="admq" value="'+esc(ADM.q)+'" placeholder="Nombre o correo"></label><button type="button" class="btn sec" data-admreload>Actualizar</button></div>'
- +'<p class="est"><b>Permisos:</b> <i>Carga</i> deja subir archivos (todas las bases y las equivalencias de telas); <i>Tablas</i> deja ver y editar la pestaña Tablas; <i>Perfil completo</i> muestra la sincronización, las copias y las bases compartidas. Sin permisos la persona consulta los informes y solo puede cambiar su contraseña. Los administradores tienen todos.</p>'
- +'<div class="tw eqt"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Permisos</th><th>Registrado</th><th>Último acceso</th><th></th></tr></thead><tbody>'
+ +'<p class="est"><b>Permisos:</b> <i>Carga</i> deja subir archivos (todas las bases y las equivalencias de telas); <i>Tablas</i> deja ver y editar la pestaña Tablas; <i>Perfil completo</i> muestra la sincronización, las copias y las bases compartidas; <i>Seguimiento</i> deja ver el cumplimiento de todo el equipo. <b>Ejecutivo:</b> el nombre de la persona tal como aparece en “Empleado responsable” de BD-Master; con él el tablero sabe qué casos le corresponden. Sin permisos la persona consulta los informes y solo puede cambiar su contraseña. Los administradores tienen todos.</p>'
+ +'<div class="tw eqt"><table><thead><tr><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Permisos</th><th>Ejecutivo</th><th>Registrado</th><th>Último acceso</th><th></th></tr></thead><tbody>'
  +(vis.map(u=>'<tr><td><b>'+esc(u.name)+'</b></td><td>'+esc(u.email)+'</td><td>'+(u.owner?'Administrador principal':u.admin?'Administrador':'Usuario')+'</td><td>'+(u.status==='Pendiente'?'<b>Pendiente</b>':u.active?'Activo':'Inactivo')+'</td>'
-  +'<td>'+(u.admin?'<span class="est">Todos</span>':'<div class="prm" data-pm="'+esc(u.email)+'">'+PERM_UI.map(([k,l])=>'<label class="chk"><input type="checkbox" value="'+k+'"'+(u.perms&&u.perms[k]?' checked':'')+'> '+l+'</label>').join('')+'</div>')+'</td><td>'+(u.created?esc(syFecha(Date.parse(u.created))):'—')+'</td><td>'+(u.last?esc(syFecha(Date.parse(u.last))):'—')+'</td><td><div class="acts2">'
+  +'<td>'+(u.admin?'<span class="est">Todos</span>':'<div class="prm" data-pm="'+esc(u.email)+'">'+PERM_UI.map(([k,l])=>'<label class="chk"><input type="checkbox" value="'+k+'"'+(u.perms&&u.perms[k]?' checked':'')+'> '+l+'</label>').join('')+'</div>')+'</td><td>'+ejCelda(u)+'</td><td>'+(u.created?esc(syFecha(Date.parse(u.created))):'—')+'</td><td>'+(u.last?esc(syFecha(Date.parse(u.last))):'—')+'</td><td><div class="acts2">'
   +(u.owner?(AU.owner?cb('reset|'+u.email,'Restablecer'):''):(u.status==='Pendiente'?cb('on|'+u.email,'Aprobar')+cb('off|'+u.email,'Rechazar','dang'):((u.admin?cb('rmadm|'+u.email,'Quitar admin'):cb('mkadm|'+u.email,'Hacer admin'))+(u.email===AU.email?'':(u.active?cb('off|'+u.email,'Desactivar','dang'):cb('on|'+u.email,'Activar')))+cb('reset|'+u.email,'Restablecer'))))
-  +'</div></td></tr>').join('')||'<tr><td colspan="8" class="est">Sin resultados.</td></tr>')
- +'</tbody></table></div>';
+  +'</div></td></tr>').join('')||'<tr><td colspan="9" class="est">Sin resultados.</td></tr>')
+ +'</tbody></table></div>'+ejLista()+'<div id="segadm"></div>';
  el.querySelectorAll('[data-adm]').forEach(b=>b.onclick=()=>{const k=b.dataset.adm;if(ADM.conf!==k){ADM.conf=k;rAdm();return}const[a,email]=k.split('|');
   if(a==='mkadm')admCargar('setAdmin',{email,admin:true});if(a==='rmadm')admCargar('setAdmin',{email,admin:false});if(a==='off')admCargar('setActive',{email,active:false});if(a==='on')admCargar('setActive',{email,active:true});if(a==='reset')admCargar('resetPass',{email})});
  el.querySelectorAll('[data-admreload]').forEach(b=>b.onclick=()=>{ADM.users=null;ADM.err='';rAdm()});
+ el.querySelectorAll('[data-ej]').forEach(i=>i.onchange=()=>{const ej=nrm(i.value);if(ej===nrm((ADM.users||[]).find(u=>u.email===i.dataset.ej).ej))return;i.disabled=true;admCargar('setEjecutivo',{email:i.dataset.ej,ej}).then(()=>{if(i.dataset.ej===AU.email&&!ADM.err){AU.ej=ej;auKeep()}})});
  el.querySelectorAll('[data-pm]').forEach(bx=>bx.onchange=()=>{const perms={};bx.querySelectorAll('input').forEach(i=>perms[i.value]=i.checked);bx.querySelectorAll('input').forEach(i=>i.disabled=true);admCargar('setPerms',{email:bx.dataset.pm,perms})});
  const f=document.getElementById('admadd');if(f)f.onsubmit=e=>{e.preventDefault();const m=document.getElementById('admmail').value.trim().toLowerCase();if(!DOM_RE.test(m)){ADM.err=ERR.dominio;return rAdm()}admCargar('addAdmin',{email:m})};
  const s=document.getElementById('admq');if(s)s.oninput=()=>{ADM.q=s.value;const pos=s.selectionStart;rAdm();const n=document.getElementById('admq');if(n){n.focus();n.setSelectionRange(pos,pos)}};
  const c=el.querySelector('[data-admcopy]');if(c)c.onclick=()=>{try{navigator.clipboard.writeText(ADM.temp[1]);c.textContent='Copiada'}catch(e){}};
  const t=el.querySelector('[data-admtclose]');if(t)t.onclick=()=>{ADM.temp=null;rAdm()};
+ if(!ADM.ejs){ADM.ejs={L:[],bd:false,cargando:1};listaEjecutivos().then(x=>{ADM.ejs=x;if(TAB==='equipo')rAdm()})}
+ rSegAdm();
+}
+/* ---------- Seguimiento de ejecutivos: configuración (solo administradores, v48) ----------
+   Ejecutivo de cada persona, ejecutivo de las cuentas sin "Empleado responsable" y familias financieras de Proyectos. */
+/* Nombres de ejecutivo de BD-Master (columna "Empleado responsable"), para elegirlos sin errores de escritura */
+async function listaEjecutivos(){
+ const ms=await get('master'),S=new Set();
+ if(ms){const ia=colDe(ms.cab,['Empleado responsable','Empleado Responsable','Ejecutivo'],/empleado\s*responsable|ejecutivo|agente|vendedor|asesor|encargado/i);
+  if(ia>=0)ms.rows.forEach(r=>{const x=nrm(r[ia]);if(x&&!/^no usar$/i.test(x))S.add(x)})}   /* "NO USAR" marca cuentas inactivas, no es un ejecutivo */
+ return{bd:!!ms,L:[...S].sort((a,b)=>a.localeCompare(b,'es'))};
+}
+/* Comparación de nombres sin tildes ni mayúsculas (igual que el servidor) */
+const ejIgual=(a,b)=>{const n=x=>nrm(x).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase();return n(a)===n(b)};
+const ejEnBD=e=>!ADM.ejs||!ADM.ejs.bd||ADM.ejs.L.some(x=>ejIgual(x,e));
+const ejLista=()=>'<datalist id="ejlist">'+((ADM.ejs&&ADM.ejs.L)||[]).map(x=>'<option value="'+esc(x)+'">').join('')+'</datalist>';
+function ejCelda(u){
+ const e=u.ej||'';
+ return '<input type="text" class="ejin" list="ejlist" data-ej="'+esc(u.email)+'" value="'+esc(e)+'" placeholder="Sin ejecutivo" aria-label="Ejecutivo de '+esc(u.name)+'"'+(SEG.srv?'':' disabled title="Actualiza el Code.gs para asignar ejecutivos"')+'>'
+  +(e&&!ejEnBD(e)?'<span class="ejav">No aparece en BD-Master</span>':'');
+}
+/* Cuentas de Garantías cuyo ejecutivo no está en BD-Master (vacío o cuenta ausente) y que todavía no tienen asignación */
+async function sinResponsable(){
+ const D=await datosGar();if(!D)return null;
+ const m=new Map();
+ D.I.forEach(y=>{if(!/BD-Master$/.test(y.ej))return;const k=kCod(y.cod);if(!k)return;let s=m.get(k);if(!s){s={c:k,d:nrm(String(y.dist).replace(/^\s*\d+\s*-\s*/,''))||y.dist,t:y.ej,g:new Set()};m.set(k,s)}s.g.add(y.id)});
+ return[...m.values()].sort((a,b)=>b.g.size-a.g.size||a.c.localeCompare(b.c,'es',{numeric:true}));
+}
+const SADM={msg:null,busy:false};
+async function segAccion(op,extra,okTxt){
+ if(!syOn()||SADM.busy)return;SADM.busy=true;SADM.msg=null;
+ try{const r=await api(Object.assign({op},extra));if(r.ok){if(r.seg)segPoner(r.seg);SADM.msg=['ok',okTxt]}else SADM.msg=['err',errMsg(r.error)]}catch(e){if(!e||!e.sesion)SADM.msg=['err',ERR.red]}
+ SADM.busy=false;rSegAdm();
+}
+async function rSegAdm(){
+ const el0=document.getElementById('segadm');if(!el0||!AU.admin)return;
+ const [EJ,SR,pe]=await Promise.all([ADM.ejs&&!ADM.ejs.cargando?ADM.ejs:listaEjecutivos(),sinResponsable(),get('pending')]);
+ const el=document.getElementById('segadm');if(!el)return;
+ /* Familias financieras: las que trae Pending en DCanalFinanciera (el filtro "Familia Financiera" de Faltantes) más las ya elegidas */
+ const fam=new Set(SEG.fam),opc=new Set(SEG.fam);
+ if(pe){const i=pe.cab.indexOf('DCanalFinanciera');if(i>=0)pe.rows.forEach(r=>{const x=nrm(r[i]);if(x)opc.add(x)})}
+ const fams=[...opc].sort((a,b)=>a.localeCompare(b,'es'));
+ const asig=[...SEG.asig.values()].sort((a,b)=>a.c.localeCompare(b.c,'es',{numeric:true}));
+ const dis=SEG.srv&&!SADM.busy?'':' disabled';
+ const inEj=(attrs,val)=>'<input type="text" class="ejin" list="ejlist" '+attrs+' value="'+esc(val||'')+'" placeholder="Nombre del ejecutivo"'+dis+'>';
+ el.innerHTML='<h3 class="eqsub">Seguimiento de ejecutivos</h3>'
+ +(SEG.srv?'':'<p class="msg err" role="alert"><b>El servidor todavía no tiene el seguimiento.</b> Pega el Code.gs nuevo en Apps Script y publica una nueva versión de la implementación (Implementar &gt; Gestionar implementaciones &gt; editar &gt; Nueva versión). Mientras tanto, estas opciones quedan bloqueadas y el resto del tablero funciona igual.</p>')
+ +(SADM.msg?'<p class="msg '+SADM.msg[0]+'" role="status">'+esc(SADM.msg[1])+'</p>':'')
+ +(EJ.bd?'':'<p class="est">'+pideCarga('Carga BD-Master en la pestaña Carga','Pídele al administrador que cargue BD-Master')+' para elegir los ejecutivos de la lista de “Empleado responsable”.</p>')
+ +'<div class="grid eq"><article class="card"><h3>Familias de Proyectos (Faltantes)</h3>'
+ +'<p class="est">Los faltantes de estas familias financieras salen en el resumen del ejecutivo solo como información: no tienen casilla ni correo y no cuentan en el porcentaje de gestión ni en los vencidos.</p>'
+ +(fams.length?'<div class="prm segfam">'+fams.map(f=>'<label class="chk"><input type="checkbox" value="'+esc(f)+'"'+(fam.has(f)?' checked':'')+dis+'> '+esc(f)+'</label>').join('')+'</div>':'<p class="est">'+pideCarga('Carga Pending','Pídele al administrador que cargue Pending')+' para ver las familias financieras.</p>')
+ +'<div class="acts"><button type="button" class="btn" id="segfam"'+dis+'>Guardar familias</button></div></article></div>'
+ +'<h3 class="eqsub">Cuentas sin responsable</h3><div id="segsr">'
+ +'<p class="est">Distribuidores de Garantías sin “Empleado responsable” en BD-Master. Al asignarles un ejecutivo, sus casos le aparecen a esa persona. Si BD-Master llega después con un nombre, manda BD-Master.</p>'
+ +(SR===null?'<p class="est">'+pideCarga('Carga Garantías','Pídele al administrador que cargue Garantías')+' para ver las cuentas sin responsable.</p>'
+  :!SR.length?'<p class="est">Todas las cuentas de Garantías tienen ejecutivo.</p>'
+  :'<div class="tw eqt"><table><thead><tr><th>Cuenta</th><th>Distribuidor</th><th>Motivo</th><th class="n">Garantías</th><th>Ejecutivo</th><th></th></tr></thead><tbody>'
+   +SR.map(x=>'<tr><td>'+esc(x.c)+'</td><td>'+esc(x.d)+'</td><td>'+esc(x.t)+'</td><td class="n">'+x.g.size+'</td><td>'+inEj('data-sc="'+esc(x.c)+'" data-sd="'+esc(x.d)+'"','')+'</td><td><button type="button" class="btn sec sm" data-sa="'+esc(x.c)+'"'+dis+'>Asignar</button></td></tr>').join('')
+   +'</tbody></table></div>')
+ +'</div>'
+ +'<h3 class="eqsub">Cuentas asignadas</h3>'
+ +(asig.length?'<div class="tw eqt"><table><thead><tr><th>Cuenta</th><th>Distribuidor</th><th>Ejecutivo</th><th>Asignada por</th><th>Fecha</th><th></th></tr></thead><tbody>'
+   +asig.map(x=>'<tr><td>'+esc(x.c)+'</td><td>'+esc(x.d)+'</td><td><b>'+esc(x.e)+'</b>'+(ejEnBD(x.e)?'':'<span class="ejav">No aparece en BD-Master</span>')+'</td><td>'+esc(x.u)+'</td><td>'+(x.t?esc(syFecha(Date.parse(x.t))):'—')+'</td><td><button type="button" class="btn sec sm dang" data-sq="'+esc(x.c)+'"'+dis+'>Quitar</button></td></tr>').join('')
+   +'</tbody></table></div>':'<p class="est">Todavía no hay cuentas asignadas a mano.</p>');
+ const bf=document.getElementById('segfam');
+ if(bf)bf.onclick=()=>{const L=[...el.querySelectorAll('.segfam input:checked')].map(i=>i.value);segAccion('segFamilias',{familias:L},L.length?'Familias de Proyectos guardadas: '+L.join(', ')+'.':'Ninguna familia quedó como Proyectos.')};
+ el.querySelectorAll('[data-sa]').forEach(b=>b.onclick=()=>{
+  const i=el.querySelector('input[data-sc="'+CSS.escape(b.dataset.sa)+'"]'),ej=nrm(i&&i.value);
+  if(!ej){SADM.msg=['err','Escribe o elige el ejecutivo de la cuenta '+b.dataset.sa+'.'];return rSegAdm()}
+  segAccion('segAsignar',{cuenta:b.dataset.sa,dist:i.dataset.sd,ej},'Cuenta '+b.dataset.sa+' asignada a '+ej+'.');
+ });
+ el.querySelectorAll('[data-sq]').forEach(b=>b.onclick=()=>segAccion('segAsignar',{cuenta:b.dataset.sq,ej:''},'Se quitó la asignación de la cuenta '+b.dataset.sq+'.'));
 }
 
 /* Navegación */
