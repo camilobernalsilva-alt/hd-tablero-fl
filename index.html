@@ -403,6 +403,16 @@ table.pv.gar td.agt{white-space:nowrap}
 table.pv.gar tr.det td.wr{white-space:normal;max-width:none;overflow:visible}
 /* Seguimiento de garantías (v49) */
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Reporte a distribuidores en Faltantes (v52) */
+details.rep{margin:0 0 16px;border:1px solid var(--ln);background:var(--sf);padding:10px 12px}
+details.rep>summary{cursor:pointer;font-weight:650;color:var(--ink)}
+details.rep[open]>summary{margin-bottom:10px}
+table.pv.rep{table-layout:fixed;width:100%;min-width:900px}
+table.pv.rep td{vertical-align:middle}table.pv.rep td.dd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+table.pv.rep td.rpd{padding-left:34px}table.pv.rep td.rpd label{display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+.rck{width:16px;height:16px;accent-color:var(--or);margin:0}
+.rcp{padding:6px 12px;min-height:0;font-size:13px}
+#f-rm .lm{margin-left:6px}
 /* Guía de despacho completa y fácil de copiar: un clic la selecciona entera */
 table.pv.gar td.gug{white-space:nowrap;text-overflow:clip;font-variant-numeric:tabular-nums;user-select:all;-webkit-user-select:all;cursor:text}
 table.pv.gar td.cbg{text-align:center;padding-left:4px;padding-right:4px}
@@ -1084,6 +1094,104 @@ function porCod(R){
  return[...m.values()].map(a=>({...a,t:[...a.t.values()].sort((p,q)=>p.tam.localeCompare(q.tam,'es',{numeric:true}))})).sort((a,b)=>b.con-a.con);
 }
 /* Faltantes (RES.Faltantes: pedido, ítem, OP, artículo, distribuidor, fechas y valor) */
+/* ===== Etapa 3 · Faltantes: ejecutivo de BD-Master y "Copiar reporte" por distribuidor =====
+   Ejecutivo (regla aprobada el 28/11/2026):
+   1. Pedido en Pending: código (col. E) + nombre (Razosocial) de Pending contra Cuenta de cliente + Empresa de BD-Master.
+   2. Pedido que no está en Pending: nombre del distribuidor en Empresa, solo cuentas numéricas (AP y CRE no cuentan).
+      Si esas cuentas tienen más de un ejecutivo, se usa el código con que ese distribuidor aparece en Pending (si es uno solo).
+   3. Si no se resuelve: "Sin responsable". Las asignaciones manuales por cuenta (Perfil > Administración) completan los vacíos. */
+const nnF=v=>String(v==null?'':v).normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const SIN_RESP='Sin responsable';
+function ejecutivoFal(ms,pe){
+ const M=new Map(),porNom=new Map(),PP=new Map(),cods=new Map();
+ if(ms){
+  const ic=colDe(ms.cab,['Cuenta de cliente'],/cuenta de cliente/i),ib=colDe(ms.cab,['Empresa'],/^empresa|raz[oó]n|nombre/i),
+   ia=colDe(ms.cab,['Empleado responsable','Empleado Responsable'],/empleado\s*responsable/i);
+  if(ic>=0&&ib>=0&&ia>=0)for(const r of ms.rows){
+   const raw=nrm(r[ic]),k=kCod(raw);if(!k)continue;let ej=nrm(r[ia]);if(/^no usar$/i.test(ej))ej='';
+   const n=nnF(r[ib]);if(!M.has(k))M.set(k,{n,ej});
+   if(/^\d+$/.test(raw)){let s=porNom.get(n);if(!s){s=new Set();porNom.set(n,s)}if(ej)s.add(ej)}
+  }
+ }
+ if(pe){const ip=pe.cab.indexOf('Pedido'),ir=pe.cab.indexOf('Razosocial');
+  for(const r of pe.rows){const p=nrm(r[ip]),k=kCod(r[4]),n=nnF(r[ir]);if(!PP.has(p))PP.set(p,{k,n});if(k){let s=cods.get(n);if(!s){s=new Set();cods.set(n,s)}s.add(k)}}}
+ const manual=k=>{const a=k&&SEG.asig.get(k);return a&&a.e?a.e:''};
+ return (ped,dist)=>{
+  const P=PP.get(ped);
+  if(P){const m=M.get(P.k);return (m&&m.n===P.n&&m.ej)||manual(P.k)||SIN_RESP}
+  const n=nnF(dist),s=porNom.get(n);
+  if(s&&s.size===1)return[...s][0];
+  const cs=cods.get(n);
+  if(cs&&cs.size===1){const k=[...cs][0],m=M.get(k);return (m&&m.ej)||manual(k)||SIN_RESP}
+  return SIN_RESP;
+ };
+}
+/* ---- Correo de novedades de material ---- */
+const LOGO_URL='https://camilobernalsilva-alt.github.io/hd-tablero-fl/';
+const MARCAS={HD:{n:'Hunter Douglas',can:'Canales HD',logo:'logo_hd.png',w:180,mail:'serviciohd@hdlao.com',wa:'573021163410',waT:'+57 302 116 3410'},
+ FL:{n:'Flexalum',can:'Canales Flexalum',logo:'logo_fl.png',w:170,mail:'servicioflexalum@hdlao.com',wa:'573021163408',waT:'+57 302 116 3408'}};
+/* Sunset (SS) es Hunter Douglas; sin marca en Pending se toma Hunter Douglas */
+const marcaRep=m=>String(m||'').trim().toUpperCase()==='FL'?'FL':'HD';
+const fNumRep=v=>(Math.round(v*100)/100).toLocaleString('es-CO',{maximumFractionDigits:2});
+const dmaIso=t=>{const m=String(t).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):''};
+/* Fecha que se informa de un faltante: {t: texto, d: aaaa-mm-dd o '', e: true si es ETTES con fecha} */
+function fechaRep(x){
+ const fl=x.fl;
+ if(x.ett)return /^\d{4}-\d\d-\d\d$/.test(fl)?{t:fd(fl),d:fl,e:true}:{t:'por confirmar',d:'',e:false};
+ if(/^\d{4}-\d\d-\d\d$/.test(fl)){const d=sigHabil(fl,1);return{t:fd(d),d,e:false}}
+ const rg=String(fl||'').match(/(\d{1,2}\/\d{1,2}\/\d{4})\s*$/);
+ if(rg&&/-/.test(String(fl))){const d0=dmaIso(rg[1]);if(d0){const d=sigHabil(d0,1);return{t:fd(d),d,e:false}}}
+ return{t:'por confirmar',d:'',e:false};
+}
+/* Líneas de un pedido: un artículo (COD + Cod. Color) una sola vez, con el consumo sumado y la fecha más lejana */
+function lineasRep(A){
+ const m=new Map();
+ for(const x of A){const k=(x.cc||x.comp)+'|'+(x.cl||x.coln),f=fechaRep(x);let a=m.get(k);
+  if(!a){a={k,comp:x.comp||x.art,col:x.coln||'',con:0,f};m.set(k,a)}
+  a.con+=x.con;if(f.d&&(!a.f.d||f.d>a.f.d))a.f=f}
+ return[...m.values()];
+}
+function cierreRep(Ls,hoy){
+ const fe=Ls.filter(l=>l.f.d);
+ if(!fe.length)return'Su pedido se encuentra siendo gestionado por las áreas internas. Apenas tengamos una fecha concreta de solución, se la informaremos.';
+ const nac=fe.filter(l=>!l.f.e);
+ if(!nac.length)return'Para este material ya se generó la orden de compra.';
+ const lim=new Date(hoy+'T12:00:00');lim.setDate(lim.getDate()+4);const kl=lim.toLocaleDateString('en-CA');
+ return nac.some(l=>l.f.d>kl)?'Lo invitamos a comunicarse con un asesor para gestionar estas novedades.':'Las áreas internas ya están gestionando el material para pasar su pedido a producción.';
+}
+/* HTML con estilos en línea (Outlook): Arial 10 pt, membrete 8 pt, canales 9 pt, pedidos en naranja subrayados */
+function correoRep(G,hoy,antes){
+ const B=MARCAS[G.mar],F='font-family:Arial,Helvetica,sans-serif;',P='margin:0 0 10px;'+F+'font-size:10pt;color:#2B343A;';
+ let h='<div style="'+F+'font-size:10pt;color:#2B343A">'
+  +'<table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;border-bottom:1px solid #E3E6E8;margin:0 0 14px"><tr>'
+  +'<td valign="top" style="'+F+'font-size:8pt;line-height:1.4;color:#5B6770;padding:0 0 8px"><b style="color:#2B343A">Hunter Douglas de Colombia</b><br>Autopista Medellín, Kilómetro 6+200<br>Costado Sur, 400 mts. entrando por Festo<br>Tenjo, Cundinamarca</td>'
+  +'<td valign="top" align="right" style="padding:0 0 8px"><img src="'+LOGO_URL+B.logo+'" width="'+B.w+'" alt="'+B.n+'" style="display:block;border:0;width:'+B.w+'px;height:auto"></td></tr></table>'
+  +'<p style="'+P+'">Señores<br><b>'+esc(G.dist)+'</b></p>'
+  +'<p style="'+P+'margin-bottom:14px">Reciban un cordial saludo. Agradecemos la confianza que depositan en '+B.n+'. A continuación les compartimos las novedades de material de sus pedidos:</p>';
+ for(const p of G.peds){
+  h+='<p style="margin:0 0 4px;'+F+'font-size:10pt;color:#F08200;font-weight:bold;text-decoration:underline">Pedido '+esc(p.ped)+'</p><ul style="margin:0 0 6px;padding-left:22px;'+F+'font-size:10pt;color:#2B343A">';
+  for(const l of p.lineas){const ant=antes&&antes(p.ped,l.k);
+   h+='<li style="margin:0 0 2px">'+esc(l.comp)+(l.col?' · '+esc(l.col):'')+' · Consumo: '+fNumRep(l.con)+' · '+(l.f.e?'Fecha estimada de llegada: ':'Fecha de solución: ')+esc(l.f.t)+(ant&&ant!==l.f.t?' (antes '+esc(ant)+')':'')+'</li>'}
+  h+='</ul><p style="'+P+'margin-bottom:14px">'+cierreRep(p.lineas,hoy)+'</p>';
+ }
+ h+='<p style="'+P+'">Agradecemos su comprensión. Estamos trabajando para ofrecerle una mejor experiencia.</p>'
+  +'<p style="'+P+'">Cordialmente,</p><p style="'+P+'margin-bottom:12px"><b>Equipo de CX</b></p>'
+  +'<p style="margin:0 0 3px;'+F+'font-size:10pt;color:#2B343A"><b>'+B.can+'</b></p>'
+  +'<p style="margin:0;'+F+'font-size:9pt;line-height:1.6;color:#2B343A">📧 Correo electrónico: <a href="mailto:'+B.mail+'" style="color:#B94700">'+B.mail+'</a><br>'
+  +'📱 WhatsApp: <a href="https://wa.me/'+B.wa+'" style="color:#B94700">'+B.waT+'</a><br>'
+  +'📞 Línea telefónica: <a href="tel:+576014321010" style="color:#B94700">(601) 432 1010</a></p></div>';
+ return h;
+}
+/* Texto sin formato del correo (DOMParser no descarga el logo) */
+const textoRep=h=>new DOMParser().parseFromString(h.replace(/<br>/g,'\n').replace(/<\/(p|li|tr)>/g,'\n'),'text/html').body.textContent.replace(/\n{3,}/g,'\n\n').trim();
+async function copiarHtml(h){
+ const t=textoRep(h);
+ try{if(navigator.clipboard&&window.ClipboardItem){await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([h],{type:'text/html'}),'text/plain':new Blob([t],{type:'text/plain'})})]);return true}}catch(e){}
+ const d=document.createElement('div');d.contentEditable='true';d.style.cssText='position:absolute;left:-9999px;top:0';d.innerHTML=h;document.body.appendChild(d);
+ const r=document.createRange();r.selectNodeContents(d);const s=getSelection();s.removeAllRanges();s.addRange(r);
+ let ok=false;try{ok=document.execCommand('copy')}catch(e){}
+ s.removeAllRanges();d.remove();return ok;
+}
 async function rFaltantes(){
  const el=$('#faltantes'),c=await get('faltantes'),p=await get('faltantes_prev'),pe=await get('pending');
  if(!c){el.innerHTML=sinDatos('Faltantes','Cárgalos en la pestaña Carga.');return}
@@ -1115,7 +1223,7 @@ async function rFaltantes(){
   const k=key(r,mk);seen.add(k);
   const fl=rc(r),fa=mp.get(k);
   const ped=String(r[g('# Pedido')]).trim(),a=pa.get(ped)||{},q=pk.get(ped+'-'+r[g('# Item')])||{},op=String(r[g('OP Id')]||'').trim(),isE=meC&&txt(r[g('Fecha de Llegada')]).toUpperCase()==='ETTES',isH=esHoy(r[g('Fecha de Llegada')]),eo=isE?(meC.get(ped)||{}):{};
-  return{pedido:ped,item:r[g('# Item')],op,art:[r[g('Componente')],r[g('COD')],r[g('Cod. Color')],r[g('Color')]].join('-'),cc:String(r[g('COD')]||'').trim(),tam:String(r[g('Tamaño')]||'').trim(),cl:String(r[g('Cod. Color')]||'').trim(),comp:String(r[g('Componente')]||'').trim(),con:num(r[g('Consumo')]),dist:r[g('Distribuidor')],
+  return{pedido:ped,item:r[g('# Item')],op,art:[r[g('Componente')],r[g('COD')],r[g('Cod. Color')],r[g('Color')]].join('-'),cc:String(r[g('COD')]||'').trim(),tam:String(r[g('Tamaño')]||'').trim(),cl:String(r[g('Cod. Color')]||'').trim(),coln:String(r[g('Color')]||'').trim(),comp:String(r[g('Componente')]||'').trim(),con:num(r[g('Consumo')]),dist:r[g('Distribuidor')],
    resp:isE?(fl===SIN_FECHA?SIN_FECHA:fd(fl)):txt(r[g('Responsable')]),obs:isE?(fl===SIN_FECHA?SIN_FECHA:fd(fl))+(p&&fa!==undefined&&fa!==fl?' (antes '+(fa===SIN_FECHA?SIN_FECHA:fd(fa))+')':''):txt(r[g('Observaciones')]),ett:isE,fl,fa:fa===undefined?'':fa,flt:eT(isE,fl,isH),fat:fa===undefined?'':eT(eP(k),fa,hP(k)),
    est:!p?'Sin comparar':fa===undefined?'Nuevo':fa===fl?'Igual':'Cambió',
    cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',
@@ -1140,7 +1248,7 @@ async function rFaltantes(){
  for(const y of AC){
   if(y.it&&y.cod&&yaBase.has(y.ped+'|'+y.it+'|'+y.cod))continue;   /* ya viene en la hoja Base */
   const a=pa.get(y.ped)||{},q=pk.get(y.it?y.ped+'-'+y.it:((a.it||[])[0]||''))||{},op=y.op||(y.it?q.op||'':''),fa=p&&p.acc?APm.get(kAc(y)):undefined,fl=y.fl;
-  L0.push({pedido:y.ped,item:y.it,op,art:[y.desc,y.cod,y.cl,y.col].filter(Boolean).join('-')||'Accesorio',cc:y.cod,tam:y.tam,cl:y.cl,comp:y.desc,con:y.con,dist:a.dist||(pe?'No está en Pending':''),
+  L0.push({pedido:y.ped,item:y.it,op,art:[y.desc,y.cod,y.cl,y.col].filter(Boolean).join('-')||'Accesorio',cc:y.cod,tam:y.tam,cl:y.cl,coln:y.col,comp:y.desc,con:y.con,dist:a.dist||(pe?'No está en Pending':''),
    resp:'',obs:y.obs,ett:false,fl,fa:fa===undefined?'':fa,flt:fd(fl),fat:fa===undefined?'':fd(fa),
    est:!(p&&p.acc)?'Sin comparar':fa===undefined?'Nuevo':fa===fl?'Igual':'Cambió',
    cod:a.cod||'',ag:a.ag||'No',ge:a.ge||'No',df:q.df||'No',fam:q.fa||'No',dias:q.di==null?'No':q.di,mar:q.ma||'PV',ea:q.ea||'No',sub:q.sub||'No',area:areaDe(y.area),ori:'Accesorios',
@@ -1148,6 +1256,12 @@ async function rFaltantes(){
    mat:/^\d{4}-\d\d-\d\d$/.test(fl)?fd(fl):(fl||'Sin fecha')});
  }
  if(AC.length)L0.sort((x,y)=>x.pedido.localeCompare(y.pedido)||num(x.item)-num(y.item));
+ /* Etapa 3: el ejecutivo sale de BD-Master (sin BD-Master cargado se conserva el Agente de Pending) */
+ /* Accesorios de pedidos que no están en Pending: toman el distribuidor de la hoja Base del mismo pedido */
+ const distBase=new Map();L0.forEach(x=>{if(x.ori==='Base'&&x.dist&&!distBase.has(x.pedido))distBase.set(x.pedido,x.dist)});
+ L0.forEach(x=>{if(x.ori==='Accesorios'&&x.dist==='No está en Pending'&&distBase.has(x.pedido))x.dist=distBase.get(x.pedido)});
+ const msF=await get('master');
+ if(msF){const ejf=ejecutivoFal(msF,pe);L0.forEach(x=>{x.ag=ejf(x.pedido,x.dist)})}
  /* Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera) */
  const fueraOP=x=>pe&&x.op&&pea.has(x.op)&&pea.get(x.op)!=='Faltante';
  const OUT=L0.filter(fueraOP),L=L0.filter(x=>!fueraOP(x));
@@ -1198,7 +1312,7 @@ async function rFaltantes(){
   +'El valor sale de Pending, cruzando por OP, y se cuenta una sola vez por OP aunque le falten varios componentes (en la grilla, las filas repetidas dicen “misma OP”). Se excluyen las OP que en Pending están en otro estado agrupado (por ejemplo, Cartera), para cuadrar con Análisis Pending; quedan en el cuadre y en la hoja “Excluidos” al exportar. En los faltantes ETTES, la fecha de llegada de la hoja ETTES se copia también en Responsable y Observaciones (“'+SIN_FECHA+'” si no tiene).'+(c.ettes?'':' Este archivo se cargó sin la hoja ETTES: '+pideCarga('vuelve a cargarlo en la pestaña Carga.','pídele al administrador que lo vuelva a cargar.'))+(pe?'':' '+pideCarga('Carga Pending','Pídele al administrador que cargue Pending')+' para ver ejecutivo, zona, días, marca, familias y valor.')+'</p></details>'+slHtml
   +(AC.length?'<p class="est">Incluye '+AC.length+(AC.length===1?' fila':' filas')+' de la hoja '+esc(c.acc.hoja)+' (pedido en la columna F, cruzado con Pending).</p>':'')
   +(iAr<0?'<p class="est">El Área (columna Q de la hoja Base) aparece cuando '+pideCarga('vuelvas a cargar el archivo de Faltantes en la pestaña Carga.','el administrador vuelva a cargar el archivo de Faltantes.')+'</p>':'')
-  +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre, ejecutivo o artículo" aria-label="Buscar">'+qfBtn('f')+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-t"></div>';
+  +'<div class="filtros"><input id="f-q" type="search" placeholder="Buscar pedido, OP, COD, Cod. Color, código de distribuidor, nombre, ejecutivo o artículo" aria-label="Buscar">'+qfBtn('f')+segBtn+'<button type="button" class="btn ex" id="f-x">Exportar a Excel</button></div><div class="fbar" id="f-b"></div><div id="f-rep"></div><div id="f-t"></div>';
  const defs=[{n:'Marca',f:x=>x.mar},{n:'Familia Financiera',f:x=>x.fam},{n:'Ejecutivo',f:x=>x.ag},{n:'Estados agrupados',f:x=>x.ea},{n:'SubEstado',f:x=>x.sub},
   {n:'Tipo de cortina',f:x=>x.df},{n:'Comercial-Zona',f:x=>x.ge},{n:'Distribuidor',f:x=>x.dist},
   {n:'Artículo',f:x=>x.art},{n:'Tamaño',f:x=>x.tam},{n:'Días',f:x=>x.dias,num:true,asc:true},defMat(),{n:'Estado',f:x=>x.est},{n:'Área',f:x=>x.area},{n:'Responsable',f:x=>x.resp},
@@ -1213,6 +1327,7 @@ async function rFaltantes(){
   $('#f-nv').textContent='$ '+Math.round(TV).toLocaleString('es-CO');
   const TK=R.reduce((s,x)=>s+x.con,0),fk=v=>v.toLocaleString('es-CO',{maximumFractionDigits:2});
   $('#f-nk').textContent=fk(TK);
+  pintarRep(R);
   if($('#f-nc')){$('#f-nc').textContent=R.filter(x=>x.est==='Cambió').length;$('#f-nn').textContent=R.filter(x=>x.est==='Nuevo').length;$('#f-ne').textContent=R.filter(x=>x.est==='Cambió'&&x.ett).length}
   if(!R.length){$('#f-t').innerHTML=vacio('Ningún faltante coincide con los filtros.');return}
   const GP=new Map();for(const x of R){let a=GP.get(x.pedido);if(!a){a=[];GP.set(x.pedido,a)}a.push(x)}
@@ -1227,8 +1342,94 @@ async function rFaltantes(){
     return'<tr class="'+g.st+'"><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
    +'</tbody></table></div>';
  };
+ /* Reporte a distribuidores (Etapa 3): un correo por distribuidor y marca con todos sus pedidos (sin Proyectos).
+    Al copiarlo, sus pedidos quedan reportados ese día; el siguiente día hábil vuelven a pendiente mientras sigan en el archivo,
+    y si cambia la fecha de un artículo vuelven a pendiente el mismo día. */
+ const REPA=FQ.fRep||(FQ.fRep=new Set());let RG=[];
+ const esProyF=x=>SEG.fam.includes(String(x.fam));
+ const firmaPed=p=>{const o={};p.lineas.forEach(l=>{o[l.k]=l.f.t});return o};
+ const histF=ped=>(HG.f&&HG.f.get(ped))||[];
+ const ultRepF=ped=>{const H=histF(ped);for(let i=H.length-1;i>=0;i--)if(H[i].acc==='Reportado')return H[i];return null};
+ const diaL=t=>new Date(t).toLocaleDateString('en-CA');
+ const estPedF=(p,hoy)=>{const H=histF(p.ped),l=H[H.length-1];
+  if(!l||l.acc!=='Reportado'||diaL(l.t)!==hoy)return'pend';
+  const f=firmaPed(p);for(const k in f)if(l.arts[k]!==f[k])return'cambio';return'rep'};
+ const verF=ej=>HG.ok&&HG.u===AU.email&&(HG.todos||(!!AU.ej&&ejIgual(AU.ej,ej)));
+ const marcaF=ej=>ejReal(ej)&&(AU.admin||(!!AU.ej&&ejIgual(AU.ej,ej)));
+ const msgRep=(tipo,html)=>{const m=$('#f-rm');if(!m)return;m.hidden=!html;m.className='msg'+(tipo==='err'?' err':' ok');m.innerHTML=html||''};
+ const pintarRep=R=>{
+  const el=$('#f-rep');if(!el)return;
+  const hoy=hoyK(),habil=esHabil(new Date(hoy+'T12:00:00')),nP=new Set(R.filter(esProyF).map(x=>x.pedido)).size;
+  const G=new Map();
+  const sinDist=new Set(R.filter(x=>!esProyF(x)&&(!x.dist||x.dist==='No está en Pending')).map(x=>x.pedido));
+  for(const x of R){if(esProyF(x)||!x.dist||x.dist==='No está en Pending')continue;const mar=marcaRep(x.mar),k=mar+'|'+nnF(x.dist);let g=G.get(k);
+   if(!g){g={k,mar,dist:String(x.dist||''),cod:'',ped:new Map(),mars:new Set()};G.set(k,g)}
+   if(!g.cod&&x.cod)g.cod=String(x.cod);let a=g.ped.get(x.pedido);if(!a){a=[];g.ped.set(x.pedido,a)}a.push(x)}
+  const dosMarcas=new Map();G.forEach(g=>{const n=nnF(g.dist);dosMarcas.set(n,(dosMarcas.get(n)||0)+1)});
+  RG=[...G.values()].map(g=>{
+   const peds=[...g.ped.entries()].sort((a,b)=>a[0].localeCompare(b[0])).map(([ped,A])=>{const p={ped,A,ej:A[0].ag,lineas:lineasRep(A)};p.ver=verF(p.ej);p.est=p.ver?estPedF(p,hoy):'';return p});
+   const ejs=[...new Set(peds.map(p=>p.ej))],np=habil?peds.filter(p=>p.ver&&p.est!=='rep').length:0;
+   return{...g,peds,ej:ejs.join(', '),np,ver:peds.some(p=>p.ver),dos:dosMarcas.get(nnF(g.dist))>1};
+  }).filter(g=>!(HG.ok&&!HG.todos&&AU.ej)||g.ver)   /* el ejecutivo ve solo sus distribuidores */
+   .sort((a,b)=>b.np-a.np||a.dist.localeCompare(b.dist,'es'));
+  const totP=RG.reduce((s,g)=>s+g.np,0);
+  if(!RG.length&&!nP){el.innerHTML='';return}
+  const est=(p)=>{if(!p.ver)return'';const H=histF(p.ped),l=H[H.length-1];
+   if(p.est==='rep')return'<span class="sgt gs" title="'+esc('Reportado por '+l.quien+(l.en?' en nombre de '+l.ej:'')+' a las '+hm(l.t))+'">✓ Reportado hoy '+hm(l.t)+'</span>';
+   if(p.est==='cambio')return'<span class="sgt vc">Cambió la fecha · reportar de nuevo</span>';
+   return habil?'<span class="sgt vh">Sin reportar</span>':'<span class="sgt sc">—</span>'};
+  const abre=FQ.fRepC==null?HG.ok&&!HG.todos:!FQ.fRepC;   /* abierto para el ejecutivo; para quien ve todo el equipo empieza cerrado */
+  el.innerHTML='<details class="rep"'+(abre?' open':'')+'><summary>Reporte a distribuidores · '+RG.length+(RG.length===1?' distribuidor':' distribuidores')+(HG.ok?' · '+totP+(totP===1?' pedido sin reportar':' pedidos sin reportar'):'')+'</summary>'
+   +(habil?'':'<p class="est">Hoy no es día hábil: no hay reportes pendientes. Puedes copiar un reporte si lo necesitas.</p>')
+   +(HG.err?'<p class="msg err">Seguimiento: '+esc(HG.err)+'</p>':'')
+   +'<p class="msg" id="f-rm" hidden></p>'
+   +(RG.length?'<div class="tw"><table class="pv rep"><colgroup><col><col style="width:200px"><col style="width:120px"><col style="width:80px"><col style="width:170px"><col style="width:150px"></colgroup><thead><tr><th>Distribuidor</th><th>Ejecutivo</th><th>Marca</th><th class="n">Pedidos</th><th>Estado de hoy</th><th></th></tr></thead><tbody>'
+   +RG.map((g,i)=>{const op=REPA.has(g.k);
+    const st=!g.ver?'':g.np?'<span class="sgt vh">'+g.np+(g.np===1?' pedido sin reportar':' pedidos sin reportar')+'</span>':habil?'<span class="sgt gs">✓ Al día</span>':'';
+    return'<tr><td class="dd" title="'+esc(g.dist)+'"><button class="tg" data-rg="'+i+'" aria-expanded="'+op+'" aria-label="Ver los pedidos de '+esc(g.dist)+'">'+(op?'⊟':'⊞')+'</button> '+esc((g.cod?g.cod+'-':'')+g.dist)+(g.dos?' <span class="sgt vc" title="Este distribuidor tiene pedidos de dos marcas: sale un reporte por marca">2 marcas</span>':'')+'</td><td class="dd" title="'+esc(g.ej)+'">'+esc(g.ej)+'</td><td>'+MARCAS[g.mar].n+'</td><td class="n">'+g.peds.length+'</td><td>'+st+'</td><td><button type="button" class="btn ex rcp" data-rc="'+i+'">Copiar reporte</button></td></tr>'
+     +g.peds.map(p=>'<tr class="det rg'+i+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd">'+(p.ver&&marcaF(p.ej)?'<label><input type="checkbox" class="rck" data-rp="'+i+'|'+esc(p.ped)+'"'+(p.est==='rep'?' checked':'')+'> ':'<span>')+'Pedido <b>'+esc(p.ped)+'</b> · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+(p.ver&&marcaF(p.ej)?'</label>':'</span>')+'</td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
+   +'</tbody></table></div>':'')
+   +(sinDist.size?'<p class="est">Sin reporte porque no se sabe el distribuidor (accesorios de pedidos que no están en Pending ni en la hoja Base): '+[...sinDist].map(esc).join(', ')+'.</p>':'')
+   +(nP?'<p class="est">Proyectos (informativo, sin reporte): '+nP+(nP===1?' pedido':' pedidos')+' de la familia '+esc(SEG.fam.join(', '))+'.</p>':'')
+   +'</details>';
+ };
+ const registraF=async(ps,acc,G)=>{
+  const items=ps.filter(p=>p.ver&&marcaF(p.ej)).map(p=>({ej:p.ej,accion:acc,ped:p.ped,cod:p.A[0].cod||'',dist:G.dist,mar:MARCAS[G.mar].n,arts:JSON.stringify(acc==='Reportado'?firmaPed(p):{}).slice(0,2000)}));
+  if(!items.length||!syOn())return 0;
+  try{const r=await api({op:'segReporte',items});
+   if(!r.ok){msgRep('err',esc(errMsg(r.error)));return -1}
+   const t=r.t||new Date().toISOString();
+   items.forEach(it=>{let a=HG.f.get(it.ped);if(!a){a=[];HG.f.set(it.ped,a)}a.push({t,quien:AU.name,ej:it.ej,en:ejIgual(AU.ej,it.ej)?'':'Sí',acc,arts:JSON.parse(it.arts)})});
+   return items.length;
+  }catch(e){if(!e||!e.sesion)msgRep('err',esc(ERR.red));return -1}
+ };
+ $('#f-rep').addEventListener('click',async e=>{
+  const sm=e.target.closest('details.rep>summary');if(sm){FQ.fRepC=sm.parentElement.open;return}   /* lo que elija la persona se respeta al repintar */
+  const t=e.target.closest('[data-rg]');
+  if(t){const g=RG[+t.dataset.rg];if(!g)return;const o=REPA.has(g.k);o?REPA.delete(g.k):REPA.add(g.k);t.setAttribute('aria-expanded',!o);t.textContent=o?'⊞':'⊟';$('#f-rep').querySelectorAll('.rg'+t.dataset.rg).forEach(r=>r.hidden=o);return}
+  const sa=e.target.closest('.rsa');
+  if(sa){const ok=await copiarHtml(esc(sa.dataset.as));sa.textContent=ok?'Asunto copiado':'No se pudo copiar';return}
+  const b=e.target.closest('.rcp');if(!b)return;
+  const G=RG[+b.dataset.rc];if(!G)return;
+  const hoy=hoyK(),antes=(ped,k)=>{const u=ultRepF(ped);return u&&u.arts?u.arts[k]:''};
+  const ok=await copiarHtml(correoRep(G,hoy,antes));
+  if(!ok){msgRep('err','No se pudo copiar el reporte. Inténtalo de nuevo.');return}
+  b.disabled=true;
+  const n=await registraF(G.peds,'Reportado',G),asunto='Novedades de material – '+MARCAS[G.mar].n;
+  msgRep('ok','Reporte de <b>'+esc(G.dist)+'</b> copiado: pégalo en Outlook. Asunto: <b>'+esc(asunto)+'</b> <button type="button" class="lm rsa" data-as="'+esc(asunto)+'">Copiar asunto</button>'
+   +(n>0?' · '+n+(n===1?' pedido quedó reportado hoy.':' pedidos quedaron reportados hoy.'):n===0?' · Los pedidos no se marcaron: solo el ejecutivo del distribuidor o un administrador puede marcarlos.':''));
+  const keep=$('#f-rm').innerHTML;pintar();msgRep('ok',keep);
+ });
+ $('#f-rep').addEventListener('change',async e=>{
+  const c=e.target.closest('.rck');if(!c)return;
+  const [i,ped]=c.dataset.rp.split('|'),G=RG[+i];if(!G)return;const p=G.peds.find(q=>q.ped===ped);if(!p)return;
+  c.disabled=true;const n=await registraF([p],c.checked?'Reportado':'Desmarcado',G);
+  msgRep(n>0?'ok':'err',n>0?(c.checked?'Pedido '+esc(ped)+' marcado como reportado hoy.':'Se desmarcó el pedido '+esc(ped)+'.'):n===0?'No se pudo marcar el pedido.':$('#f-rm').innerHTML);
+  const keep=$('#f-rm').innerHTML,cls=$('#f-rm').className;pintar();const m=$('#f-rm');if(m){m.hidden=false;m.className=cls;m.innerHTML=keep}
+ });
  pasa=filtros($('#f-b'),defs,L,pintar,'f');
  $('#f-q').value=FQ.f||'';$('#f-q').oninput=()=>{FQ.f=$('#f-q').value;pintar()};pintar();
+ cargarHG().then(c=>{if(c&&document.body.contains($('#f-t')))pintar()});
  $('#f-x').onclick=()=>exportar('Faltantes',[{n:'Faltantes',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Cod. Distribuidor','Distribuidor','Ejecutivo','Fecha ayer','Fecha de llegada','Área','Estado','Marca','Familia Financiera','Estado agrupado','SubEstado','Comercial-Zona','Días','Tipo de cortina','Análisis de material','Responsable','Observaciones','Origen','Consumo','Valor (una vez por OP)','Valor de la OP'],
   rows:ult.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.cod,x.dist,x.ag,x.fat,x.flt,x.area,x.est,x.mar,x.fam,x.ea,x.sub,x.ge,x.dias,x.df,x.mat,x.resp,x.obs,x.ori,x.con,x.uno?x.val:0,x.val])},{n:'Consumo por COD y tamaño',cab:['COD','Cod. Color','Componente','Tamaño','Faltantes','Consumo'],rows:porCod(ult).flatMap(a=>a.t.map(t=>[a.cc,a.cl,a.comp,t.tam,t.n,Math.round(t.con*100)/100]))},...(SL.length?[{n:'Salieron por artículo',cab:['Artículo','Faltantes','Pedidos','Consumo','Valor','Sin valor'],rows:[...SA.map(g=>[g.art,g.n,g.np,Math.round(g.con*100)/100,g.val,g.sv]),['Total que salió',SL.length,SLP,Math.round(SLK*100)/100,SLV,SLS]]},{n:'Salieron detalle',cab:['Pedido','Ítem','OP','Artículo','Distribuidor','Consumo','Valor'],rows:SL.map(x=>[x.pedido,x.item,x.op,x.art,x.dist,x.con,x.uno?x.val:0])}]:[]),...(OUT.length?[{n:'Excluidos (otro estado)',cab:['Pedido','Ítem','OP','Artículo','COD','Cod. Color','Tamaño','Distribuidor','Estado agrupado en Pending','Consumo','Valor de la OP'],rows:OUT.map(x=>[x.pedido,x.item,x.op,x.art,x.cc,x.cl,x.tam,x.dist,pea.get(x.op),x.con,x.val])}]:[]),hojaFiltros(pasa,$('#f-q').value)]);
 }
@@ -1410,13 +1611,13 @@ const esHabil=d=>{const w=d.getDay();return w!==0&&w!==6&&!festivos(d.getFullYea
 function sigHabil(k,n){const d=new Date(k+'T12:00:00');let c=0;while(c<n){d.setDate(d.getDate()+1);if(esHabil(d))c++}return d.toLocaleDateString('en-CA')}
 const SG_OP=['Vencida','Vence hoy','Seguimiento hoy','Gestionada','Gestionadas hoy','En plazo','Rezago inicial','Sin control'];
 const kSegG=(id,est)=>nrm(id)+'|'+nrm(est).toLowerCase();
-const ejReal=e=>!!nrm(e)&&!/BD-Master$|^Sin dato$/.test(e);
+const ejReal=e=>!!nrm(e)&&!/BD-Master$|^Sin dato$|^Sin responsable$|^No$/.test(e);
 /* Última gestión por garantía + estado, leída del historial del servidor (se refresca cada 3 minutos) */
-const HG={t:0,ok:false,todos:false,err:'',last:new Map(),p:null,u:''};
+const HG={t:0,ok:false,todos:false,err:'',last:new Map(),f:new Map(),p:null,u:''};
 function cargarHG(forzar){
  if(!AU.token||!syOn())return Promise.resolve(false);
  /* Otro usuario en el mismo navegador: no se reutiliza lo que veía el anterior */
- if(HG.u!==AU.email){HG.ok=false;HG.todos=false;HG.err='';HG.last=new Map();HG.u=AU.email;HG.p=null}
+ if(HG.u!==AU.email){HG.ok=false;HG.todos=false;HG.err='';HG.last=new Map();HG.f=new Map();HG.u=AU.email;HG.p=null}
  if(HG.p)return HG.p;
  if(!forzar&&HG.ok&&Date.now()-HG.t<180000)return Promise.resolve(false);
  const yo=AU.email;
@@ -1424,6 +1625,7 @@ function cargarHG(forzar){
   if(yo!==AU.email)return false;
   if(!r.ok){HG.err=errMsg(r.error);return true}
   const M=new Map();(r.g||[]).forEach(f=>{const k=kSegG(f[6],f[7]);M.set(k,{t:f[0],quien:f[1],ej:f[3],en:f[4],acc:f[5],seg:/^\d{4}-\d\d-\d\d$/.test(String(f[11]||''))?String(f[11]):''})});
+  const MF=new Map();(r.f||[]).forEach(f=>{const p=nrm(f[6]);let a=MF.get(p);if(!a){a=[];MF.set(p,a)}let o={};try{o=JSON.parse(f[10]||'{}')||{}}catch(e){}a.push({t:f[0],quien:f[1],ej:f[3],en:f[4],acc:f[5],arts:o})});HG.f=MF;
   HG.last=M;HG.todos=!!r.todos;HG.ok=true;HG.err='';HG.t=Date.now();return true;
  }).catch(e=>{if(!e||!e.sesion)HG.err=ERR.red;return true}).finally(()=>{HG.p=null});
  return HG.p;
