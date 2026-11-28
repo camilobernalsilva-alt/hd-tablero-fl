@@ -1196,6 +1196,8 @@ function correoRep(G,hoy,antes){
 }
 /* Texto sin formato del correo (DOMParser no descarga el logo) */
 const textoRep=h=>new DOMParser().parseFromString(h.replace(/<br>/g,'\n').replace(/<\/(p|li|tr)>/g,'\n'),'text/html').body.textContent.replace(/\n{3,}/g,'\n\n').trim();
+/* Al repintar una tabla con desplazamiento propio (.tw) se conserva su posición: marcar una casilla no mueve la barra */
+function guardaScroll(el){const t=el&&el.querySelector('.tw'),p=t?[t.scrollTop,t.scrollLeft]:null;return()=>{const n=p&&el.querySelector('.tw');if(n){n.scrollTop=p[0];n.scrollLeft=p[1]}}}
 /* Aviso breve abajo a la derecha (por ejemplo "Pedido D170894 copiado") */
 function avisoF(t){let d=document.getElementById('toastf');if(!d){d=document.createElement('div');d.id='toastf';d.setAttribute('role','status');document.body.appendChild(d)}
  d.textContent='✓ '+t;d.classList.add('on');clearTimeout(avisoF.t);avisoF.t=setTimeout(()=>d.classList.remove('on'),3500)}
@@ -1349,6 +1351,7 @@ async function rFaltantes(){
   if(!R.length){$('#f-t').innerHTML=vacio('Ningún faltante coincide con los filtros.');return}
   const GP=new Map();for(const x of R){let a=GP.get(x.pedido);if(!a){a=[];GP.set(x.pedido,a)}a.push(x)}
   const GR=[...GP.values()].map(a=>({a,v:a.reduce((t,y)=>t+(y.uno?y.val:0),0),k:a.reduce((t,y)=>t+y.con,0),st:a.some(y=>y.est==='Cambió')?'rojo':a.some(y=>y.est==='Nuevo')?'nuevo':''})).sort((u,w)=>w.v-u.v||u.a[0].pedido.localeCompare(w.a[0].pedido));
+  const svT=guardaScroll($('#f-t'));
   $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th class="cbf"><span class="sr">Marcar para el reporte</span></th><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th>Ejecutivo</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
    +'<tr class="tot"><td></td><td colspan="4">Total general · '+GR.length.toLocaleString('es-CO')+(GR.length===1?' pedido':' pedidos')+'</td><td class="n">'+R.length.toLocaleString('es-CO')+'</td><td class="n">'+fk(TK)+'</td><td class="n">'+$m(TV)+'</td></tr>'
    +GR.map(g=>{const x=g.a[0];
@@ -1358,7 +1361,7 @@ async function rFaltantes(){
     const ags=[...new Set(g.a.map(y=>y.ag).filter(v=>v&&v!=='No'))].join(', ')||x.ag;
     const sel=SELF.has(x.pedido),rep=pendHoyF.get(x.pedido)==='rep';
     return'<tr class="'+g.st+(sel?' rsl':rep?' rok':'')+'"><td class="cbf">'+(REPPED.has(x.pedido)?'<input type="checkbox" class="fsel" data-ped="'+esc(x.pedido)+'"'+(sel||rep?' checked':'')+' aria-label="Marcar '+esc(x.pedido)+' para el reporte">':'')+'</td><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
-   +'</tbody></table></div>';
+   +'</tbody></table></div>';svT();
  };
  /* Reporte a distribuidores (Etapa 3): un correo por distribuidor y marca con todos sus pedidos (sin Proyectos).
     Al copiarlo, sus pedidos quedan reportados ese día; el siguiente día hábil vuelven a pendiente mientras sigan en el archivo,
@@ -1415,6 +1418,7 @@ async function rFaltantes(){
    if(p.est==='cambio')return'<span class="sgt vc">Cambió la fecha · reportar de nuevo</span>';
    return habil?'<span class="sgt vh">Sin reportar</span>':'<span class="sgt sc">—</span>'};
   const abre=!FQ.fRepC;   /* empieza abierto; si la persona lo cierra, se respeta */
+  const svR=guardaScroll(el);
   el.innerHTML='<details class="rep"'+(abre?' open':'')+'><summary>Reporte a distribuidores · '+RG.length+(RG.length===1?' distribuidor':' distribuidores')+(HG.ok?' · '+totP+(totP===1?' pedido sin reportar':' pedidos sin reportar'):'')+'</summary>'
    +(habil?'':'<p class="est">Hoy no es día hábil: no hay reportes pendientes. Puedes copiar un reporte si lo necesitas.</p>')
    +(HG.err?'<p class="msg err">Seguimiento: '+esc(HG.err)+'</p>':'')
@@ -1426,7 +1430,7 @@ async function rFaltantes(){
      +g.peds.map(p=>'<tr class="det rg'+i+(SELF.has(p.ped)?' rsl':p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(SELF.has(p.ped)||p.est==='rep'?' checked':'')+(p.est==='rep'&&!SELF.has(p.ped)&&!marcaF(p.ej)?' disabled':'')+'> Pedido <b>'+esc(p.ped)+'</b>'+(esProyF(p.A[0])?' <span class="sgt rz">Proyectos</span>':'')+' · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
    +'</tbody></table></div>':'')
    +(sinDist.size?'<p class="est">Sin reporte porque no se sabe el distribuidor (accesorios de pedidos que no están en Pending ni en la hoja Base): '+[...sinDist].map(esc).join(', ')+'.</p>':'')
-   +'</details>';
+   +'</details>';svR();
  };
  const registraF=async(ps,acc,G)=>{
   const items=ps.filter(p=>p.ver&&marcaF(p.ej)).map(p=>({ej:p.ej,accion:acc,ped:p.ped,cod:p.A[0].cod||'',dist:G.dist,mar:MARCAS[G.mar].n,arts:JSON.stringify(acc==='Reportado'?firmaPed(p):{}).slice(0,2000)}));
@@ -1473,8 +1477,10 @@ async function rFaltantes(){
     vuelve a "Sin reportar" y pierde el color y la hora. */
  async function togglePedF(ped,c){
   const g=RG.find(q=>q.peds.some(p=>p.ped===ped)),p=g&&g.peds.find(q=>q.ped===ped);
-  if(c.checked){SELF.add(ped);if(g)REPA.add(g.k);pintar();return}
-  if(SELF.has(ped)){SELF.delete(ped);pintar();return}
+  const sel=c.classList.contains('fsel')?'#f-t .fsel[data-ped="'+CSS.escape(ped)+'"]':'#f-rep .rsel[data-rp$="|'+CSS.escape(ped)+'"]',y0=c.getBoundingClientRect().top;
+  const pinta=()=>{pintar();const n=document.querySelector(sel);if(n){const d=n.getBoundingClientRect().top-y0;if(Math.abs(d)>1)window.scrollBy(0,d)}};   /* la casilla queda donde estaba */
+  if(c.checked){SELF.add(ped);if(g)REPA.add(g.k);pinta();return}
+  if(SELF.has(ped)){SELF.delete(ped);pinta();return}
   if(p&&p.est==='rep'){c.disabled=true;const n=await registraF([p],'Desmarcado',g);if(n>0)avisoF('Pedido '+ped+' desmarcado');pintar();if(n>0)msgRep('ok','Se quitó el reporte de hoy del pedido '+esc(ped)+'.');return}
   pintar();
  }
