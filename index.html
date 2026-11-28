@@ -1369,7 +1369,7 @@ async function rFaltantes(){
  /* Filtros rápidos de las tarjetas de arriba */
  const pendHoyF=new Map();
  const filtroRapido=R0=>{
-  const hoy=hoyK(),G=new Map();R0.forEach(x=>{if(esProyF(x))return;let a=G.get(x.pedido);if(!a){a=[];G.set(x.pedido,a)}a.push(x)});
+  const hoy=hoyK(),G=new Map();R0.forEach(x=>{let a=G.get(x.pedido);if(!a){a=[];G.set(x.pedido,a)}a.push(x)});
   pendHoyF.clear();let nsr=0,nrh=0;
   G.forEach((A,ped)=>{if(!verF(A[0].ag))return;const e=estPedF({ped,lineas:lineasRep(A)},hoy);pendHoyF.set(ped,e);if(e==='rep')nrh++;else nsr++});
   const a=$('#f-nsr'),b=$('#f-nrh');if(a)a.textContent=HG.ok?nsr.toLocaleString('es-CO'):'…';if(b)b.textContent=HG.ok?nrh.toLocaleString('es-CO'):'…';
@@ -1393,8 +1393,10 @@ async function rFaltantes(){
   const el=$('#f-rep');if(!el)return;
   const hoy=hoyK(),habil=esHabil(new Date(hoy+'T12:00:00')),nP=new Set(R.filter(esProyF).map(x=>x.pedido)).size;
   const G=new Map();
-  const sinDist=new Set(R.filter(x=>!esProyF(x)&&(!x.dist||x.dist==='No está en Pending')).map(x=>x.pedido));
-  for(const x of R){if(esProyF(x)||!x.dist||x.dist==='No está en Pending')continue;const mar=marcaRep(x.mar),k=mar+'|'+nnF(x.dist);let g=G.get(k);
+  const sinDist=new Set(R.filter(x=>!x.dist||x.dist==='No está en Pending').map(x=>x.pedido));
+  for(const x of R){if(!x.dist||x.dist==='No está en Pending')continue;
+   /* Proyectos también se reporta (decisión del 28/11/2026); se identifica con la etiqueta "Proyectos" */
+   const mar=marcaRep(x.mar),k=mar+'|'+nnF(x.dist);let g=G.get(k);
    if(!g){g={k,mar,dist:String(x.dist||''),cod:'',ped:new Map(),mars:new Set()};G.set(k,g)}
    if(!g.cod&&x.cod)g.cod=String(x.cod);let a=g.ped.get(x.pedido);if(!a){a=[];g.ped.set(x.pedido,a)}a.push(x)}
   const dosMarcas=new Map();G.forEach(g=>{const n=nnF(g.dist);dosMarcas.set(n,(dosMarcas.get(n)||0)+1)});
@@ -1421,10 +1423,9 @@ async function rFaltantes(){
    +RG.map((g,i)=>{const op=REPA.has(g.k);
     const st=!g.ver?'':g.np?'<span class="sgt vh">'+g.np+(g.np===1?' pedido sin reportar':' pedidos sin reportar')+'</span>':habil?'<span class="sgt gs">✓ Al día</span>':'';
     return'<tr class="rgf'+(g.ok?' rok':'')+'"><td class="dd" title="'+esc(g.dist)+'"><button class="tg" data-rg="'+i+'" aria-expanded="'+op+'" aria-label="Ver los pedidos de '+esc(g.dist)+'">'+(op?'⊟':'⊞')+'</button> '+esc((g.cod?g.cod+'-':'')+g.dist)+(g.dos?' <span class="sgt vc" title="Este distribuidor tiene pedidos de dos marcas: sale un reporte por marca">2 marcas</span>':'')+'</td><td class="dd" title="'+esc(g.ej)+'">'+esc(g.ej)+'</td><td>'+MARCAS[g.mar].n+'</td><td class="n" title="Pedidos marcados para el reporte">'+(g.nsel?g.nsel+' de '+g.peds.length:g.peds.length)+'</td><td>'+st+'</td><td><button type="button" class="btn ex rcp" data-rc="'+i+'">Copiar reporte</button></td></tr>'
-     +g.peds.map(p=>'<tr class="det rg'+i+(SELF.has(p.ped)?' rsl':p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(SELF.has(p.ped)||p.est==='rep'?' checked':'')+(p.est==='rep'&&!SELF.has(p.ped)&&!marcaF(p.ej)?' disabled':'')+'> Pedido <b>'+esc(p.ped)+'</b> · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
+     +g.peds.map(p=>'<tr class="det rg'+i+(SELF.has(p.ped)?' rsl':p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(SELF.has(p.ped)||p.est==='rep'?' checked':'')+(p.est==='rep'&&!SELF.has(p.ped)&&!marcaF(p.ej)?' disabled':'')+'> Pedido <b>'+esc(p.ped)+'</b>'+(esProyF(p.A[0])?' <span class="sgt rz">Proyectos</span>':'')+' · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
    +'</tbody></table></div>':'')
    +(sinDist.size?'<p class="est">Sin reporte porque no se sabe el distribuidor (accesorios de pedidos que no están en Pending ni en la hoja Base): '+[...sinDist].map(esc).join(', ')+'.</p>':'')
-   +(nP?'<p class="est">Proyectos (informativo, sin reporte): '+nP+(nP===1?' pedido':' pedidos')+' de la familia '+esc(SEG.fam.join(', '))+'.</p>':'')
    +'</details>';
  };
  const registraF=async(ps,acc,G)=>{
