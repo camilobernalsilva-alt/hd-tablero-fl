@@ -416,6 +416,10 @@ table.pv.rep td.rpd{padding-left:34px}table.pv.rep td.rpd label{display:inline-f
 .chips.fq span[data-fq]{cursor:pointer}.chips.fq span[data-fq]:hover{border-color:var(--mut)}
 .chips.fq span.on{border-color:var(--or);box-shadow:inset 0 0 0 2px var(--or)}
 table.pv.rep tr.rok>td{background:#E3F1E8}
+table.pv.rep tr.rsl>td,table.pnd tr.rsl>td{background:#FFE7C7}
+table.pnd tr.rok>td{background:#E3F1E8}
+table.pnd th.cbf,table.pnd td.cbf{width:34px;text-align:center;padding-left:4px;padding-right:4px}
+.fsel{width:16px;height:16px;accent-color:var(--or);margin:0;vertical-align:middle;cursor:pointer}
 .rsel{width:16px;height:16px;accent-color:var(--or);margin:0}
 .rdm{margin-left:6px;font-size:12px;padding:2px 8px;min-height:0}
 #toastf{position:fixed;right:20px;bottom:20px;z-index:60;background:#2B343A;color:#fff;padding:12px 18px;font-size:14px;font-weight:600;border-left:4px solid var(--or);box-shadow:0 6px 20px rgba(0,0,0,.2);opacity:0;transform:translateY(10px);transition:opacity .2s,transform .2s;pointer-events:none}
@@ -1345,21 +1349,23 @@ async function rFaltantes(){
   if(!R.length){$('#f-t').innerHTML=vacio('Ningún faltante coincide con los filtros.');return}
   const GP=new Map();for(const x of R){let a=GP.get(x.pedido);if(!a){a=[];GP.set(x.pedido,a)}a.push(x)}
   const GR=[...GP.values()].map(a=>({a,v:a.reduce((t,y)=>t+(y.uno?y.val:0),0),k:a.reduce((t,y)=>t+y.con,0),st:a.some(y=>y.est==='Cambió')?'rojo':a.some(y=>y.est==='Nuevo')?'nuevo':''})).sort((u,w)=>w.v-u.v||u.a[0].pedido.localeCompare(w.a[0].pedido));
-  $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th>Ejecutivo</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
-   +'<tr class="tot"><td colspan="4">Total general · '+GR.length.toLocaleString('es-CO')+(GR.length===1?' pedido':' pedidos')+'</td><td class="n">'+R.length.toLocaleString('es-CO')+'</td><td class="n">'+fk(TK)+'</td><td class="n">'+$m(TV)+'</td></tr>'
+  $('#f-t').innerHTML='<div class="tw"><table class="pnd"><thead><tr><th class="cbf"><span class="sr">Marcar para el reporte</span></th><th>Pedido</th><th>Cod. Distribuidor</th><th>Distribuidor</th><th>Ejecutivo</th><th class="n">Faltantes</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
+   +'<tr class="tot"><td></td><td colspan="4">Total general · '+GR.length.toLocaleString('es-CO')+(GR.length===1?' pedido':' pedidos')+'</td><td class="n">'+R.length.toLocaleString('es-CO')+'</td><td class="n">'+fk(TK)+'</td><td class="n">'+$m(TV)+'</td></tr>'
    +GR.map(g=>{const x=g.a[0];
-    const sr='<tr class="seg det '+g.st+'"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="7"><table class="pnd2 fl"><thead><tr><th>Ítem</th><th>OP</th><th>Artículo</th><th>COD</th><th>Cod. Color</th><th>Tamaño</th><th>Fecha ayer</th><th>Fecha de llegada</th><th>Área</th><th>Observaciones</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
+    const sr='<tr class="seg det '+g.st+'"'+(SEGA?'':' hidden')+'><td class="sg pd" colspan="8"><table class="pnd2 fl"><thead><tr><th>Ítem</th><th>OP</th><th>Artículo</th><th>COD</th><th>Cod. Color</th><th>Tamaño</th><th>Fecha ayer</th><th>Fecha de llegada</th><th>Área</th><th>Observaciones</th><th class="n">Consumo</th><th class="n">Valor</th></tr></thead><tbody>'
      +g.a.map(y=>'<tr class="'+(y.est==='Cambió'?'rojo':y.est==='Nuevo'?'nuevo':'')+'"><td class="n">'+esc(y.item)+'</td><td>'+esc(y.op)+'</td><td class="wr">'+esc(y.art)+(y.ori==='Accesorios'?' <span class="sb">Accesorio</span>':'')+'</td><td>'+esc(y.cc)+'</td><td>'+esc(y.cl)+'</td><td>'+esc(y.tam)+'</td><td>'+esc(y.fat)+'</td><td>'+esc(y.flt)+'</td><td>'+esc(y.area)+'</td><td class="wr">'+esc(y.obs)+'</td><td class="n">'+fk(y.con)+'</td><td class="n">'+(y.uno?$m(y.val):'<span class="est">misma OP</span>')+'</td></tr>').join('')
      +'</tbody></table></td></tr>';
     const ags=[...new Set(g.a.map(y=>y.ag).filter(v=>v&&v!=='No'))].join(', ')||x.ag;
-    return'<tr class="'+g.st+'"><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
+    const sel=SELF.has(x.pedido),rep=pendHoyF.get(x.pedido)==='rep';
+    return'<tr class="'+g.st+(sel?' rsl':rep?' rok':'')+'"><td class="cbf">'+(REPPED.has(x.pedido)?'<input type="checkbox" class="fsel" data-ped="'+esc(x.pedido)+'"'+(sel?' checked':'')+' aria-label="Marcar '+esc(x.pedido)+' para el reporte">':'')+'</td><td>'+segTg(sr)+esc(x.pedido)+'</td><td>'+esc(x.cod)+'</td><td class="dd" title="'+esc(x.dist)+'">'+esc(x.dist)+'</td><td class="dd" title="'+esc(ags)+'">'+esc(ags)+'</td><td class="n">'+g.a.length+'</td><td class="n">'+fk(g.k)+'</td><td class="n">'+$m(g.v)+'</td></tr>'+sr}).join('')
    +'</tbody></table></div>';
  };
  /* Reporte a distribuidores (Etapa 3): un correo por distribuidor y marca con todos sus pedidos (sin Proyectos).
     Al copiarlo, sus pedidos quedan reportados ese día; el siguiente día hábil vuelven a pendiente mientras sigan en el archivo,
     y si cambia la fecha de un artículo vuelven a pendiente el mismo día. */
  const REPA=FQ.fRep||(FQ.fRep=new Set());let RG=[];
- const EXC=FQ.fExc||(FQ.fExc=new Set());   /* pedidos que la persona quitó del reporte (distribuidor|pedido) */
+ const SELF=FQ.fSel||(FQ.fSel=new Set());   /* pedidos marcados para "Copiar reporte" (empiezan sin marcar) */
+ let REPPED=new Set();   /* pedidos que pueden ir en un reporte (no Proyectos, con distribuidor) */
  /* Filtros rápidos de las tarjetas de arriba */
  const pendHoyF=new Map();
  const filtroRapido=R0=>{
@@ -1398,7 +1404,8 @@ async function rFaltantes(){
    return{...g,peds,ej:ejs.join(', '),np,ver:peds.some(p=>p.ver),dos:dosMarcas.get(nnF(g.dist))>1};
   }).filter(g=>!(HG.ok&&!HG.todos&&AU.ej)||g.ver)   /* el ejecutivo ve solo sus distribuidores */
    .sort((a,b)=>b.np-a.np||a.dist.localeCompare(b.dist,'es'));
-  RG.forEach(g=>{const vs=g.peds.filter(p=>p.ver);g.ok=vs.length>0&&vs.every(p=>p.est==='rep');g.nsel=g.peds.filter(p=>!EXC.has(g.k+'|'+p.ped)).length});
+  RG.forEach(g=>{const vs=g.peds.filter(p=>p.ver);g.ok=vs.length>0&&vs.every(p=>p.est==='rep');g.nsel=g.peds.filter(p=>SELF.has(p.ped)).length});
+  REPPED=new Set();RG.forEach(g=>g.peds.forEach(p=>REPPED.add(p.ped)));
   const totP=RG.reduce((s,g)=>s+g.np,0);
   if(!RG.length&&!nP){el.innerHTML='';return}
   const est=(p)=>{if(!p.ver)return'';const H=histF(p.ped),l=H[H.length-1];
@@ -1413,8 +1420,8 @@ async function rFaltantes(){
    +(RG.length?'<div class="tw"><table class="pv rep"><colgroup><col><col style="width:200px"><col style="width:120px"><col style="width:80px"><col style="width:170px"><col style="width:150px"></colgroup><thead><tr><th>Distribuidor</th><th>Ejecutivo</th><th>Marca</th><th class="n">Pedidos</th><th>Estado de hoy</th><th></th></tr></thead><tbody>'
    +RG.map((g,i)=>{const op=REPA.has(g.k);
     const st=!g.ver?'':g.np?'<span class="sgt vh">'+g.np+(g.np===1?' pedido sin reportar':' pedidos sin reportar')+'</span>':habil?'<span class="sgt gs">✓ Al día</span>':'';
-    return'<tr class="rgf'+(g.ok?' rok':'')+'"><td class="dd" title="'+esc(g.dist)+'"><button class="tg" data-rg="'+i+'" aria-expanded="'+op+'" aria-label="Ver los pedidos de '+esc(g.dist)+'">'+(op?'⊟':'⊞')+'</button> '+esc((g.cod?g.cod+'-':'')+g.dist)+(g.dos?' <span class="sgt vc" title="Este distribuidor tiene pedidos de dos marcas: sale un reporte por marca">2 marcas</span>':'')+'</td><td class="dd" title="'+esc(g.ej)+'">'+esc(g.ej)+'</td><td>'+MARCAS[g.mar].n+'</td><td class="n" title="Pedidos seleccionados para el reporte">'+(g.nsel===g.peds.length?g.peds.length:g.nsel+' de '+g.peds.length)+'</td><td>'+st+'</td><td><button type="button" class="btn ex rcp" data-rc="'+i+'">Copiar reporte</button></td></tr>'
-     +g.peds.map(p=>'<tr class="det rg'+i+(p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(EXC.has(g.k+'|'+p.ped)?'':' checked')+'> Pedido <b>'+esc(p.ped)+'</b> · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
+    return'<tr class="rgf'+(g.ok?' rok':'')+'"><td class="dd" title="'+esc(g.dist)+'"><button class="tg" data-rg="'+i+'" aria-expanded="'+op+'" aria-label="Ver los pedidos de '+esc(g.dist)+'">'+(op?'⊟':'⊞')+'</button> '+esc((g.cod?g.cod+'-':'')+g.dist)+(g.dos?' <span class="sgt vc" title="Este distribuidor tiene pedidos de dos marcas: sale un reporte por marca">2 marcas</span>':'')+'</td><td class="dd" title="'+esc(g.ej)+'">'+esc(g.ej)+'</td><td>'+MARCAS[g.mar].n+'</td><td class="n" title="Pedidos marcados para el reporte">'+(g.nsel?g.nsel+' de '+g.peds.length:g.peds.length)+'</td><td>'+st+'</td><td><button type="button" class="btn ex rcp" data-rc="'+i+'">Copiar reporte</button></td></tr>'
+     +g.peds.map(p=>'<tr class="det rg'+i+(SELF.has(p.ped)?' rsl':p.est==='rep'?' rok':'')+'"'+(op?'':' hidden')+'><td colspan="4" class="rpd"><label title="Incluir este pedido en el reporte"><input type="checkbox" class="rsel" data-rp="'+i+'|'+esc(p.ped)+'"'+(SELF.has(p.ped)?' checked':'')+'> Pedido <b>'+esc(p.ped)+'</b> · '+p.lineas.length+(p.lineas.length===1?' artículo':' artículos')+(p.ej!==g.ej?' · '+esc(p.ej):'')+'</label></td><td colspan="2">'+est(p)+'</td></tr>').join('')}).join('')
    +'</tbody></table></div>':'')
    +(sinDist.size?'<p class="est">Sin reporte porque no se sabe el distribuidor (accesorios de pedidos que no están en Pending ni en la hoja Base): '+[...sinDist].map(esc).join(', ')+'.</p>':'')
    +(nP?'<p class="est">Proyectos (informativo, sin reporte): '+nP+(nP===1?' pedido':' pedidos')+' de la familia '+esc(SEG.fam.join(', '))+'.</p>':'')
@@ -1438,12 +1445,13 @@ async function rFaltantes(){
   if(sa){const ok=await copiarHtml(esc(sa.dataset.as));sa.textContent=ok?'Asunto copiado':'No se pudo copiar';return}
   const b=e.target.closest('.rcp');if(!b)return;
   const G0=RG[+b.dataset.rc];if(!G0)return;
-  const G={...G0,peds:G0.peds.filter(p=>!EXC.has(G0.k+'|'+p.ped))};
-  if(!G.peds.length){msgRep('err','Selecciona al menos un pedido de '+esc(G0.dist)+' para el reporte (ábrelo con ⊞).');return}
+  const G={...G0,peds:G0.peds.filter(p=>SELF.has(p.ped))};
+  if(!G.peds.length){REPA.add(G0.k);pintar();msgRep('err','Marca los pedidos de '+esc(G0.dist)+' que quieres reportar (casillas de la lista o de la grilla de abajo).');return}
   const hoy=hoyK(),antes=(ped,k)=>{const u=ultRepF(ped);return u&&u.arts?u.arts[k]:''};
   const ok=await copiarHtml(correoRep(G,hoy,antes));
   if(!ok){msgRep('err','No se pudo copiar el reporte. Inténtalo de nuevo.');return}
   b.disabled=true;
+  G.peds.forEach(p=>SELF.delete(p.ped));
   const n=await registraF(G.peds,'Reportado',G),asunto='Novedades de material – '+MARCAS[G.mar].n;
   avisoF(G.peds.length===1?'Pedido '+G.peds[0].ped+' copiado':G.peds.length+' pedidos copiados · '+G.dist);
   msgRep('ok','Reporte de <b>'+esc(G.dist)+'</b> copiado ('+G.peds.map(p=>esc(p.ped)).join(', ')+'): pégalo en Outlook. Asunto: <b>'+esc(asunto)+'</b> <button type="button" class="lm rsa" data-as="'+esc(asunto)+'">Copiar asunto</button>'
@@ -1453,8 +1461,13 @@ async function rFaltantes(){
  /* Casilla de la segunda línea: qué pedidos entran al reporte (no marca nada como reportado) */
  $('#f-rep').addEventListener('change',e=>{
   const c=e.target.closest('.rsel');if(!c)return;
-  const [i,ped]=c.dataset.rp.split('|'),G=RG[+i];if(!G)return;const k=G.k+'|'+ped;
-  c.checked?EXC.delete(k):EXC.add(k);pintar();
+  const ped=c.dataset.rp.split('|')[1];c.checked?SELF.add(ped):SELF.delete(ped);pintar();
+ });
+ /* Casilla de la grilla de abajo: es la misma selección que la del reporte */
+ $('#f-t').addEventListener('change',e=>{
+  const c=e.target.closest('.fsel');if(!c)return;
+  const ped=c.dataset.ped;c.checked?SELF.add(ped):SELF.delete(ped);
+  const g=RG.find(q=>q.peds.some(p=>p.ped===ped));if(g&&c.checked)REPA.add(g.k);pintar();
  });
  /* Desmarcar un pedido reportado: vuelve a "Sin reportar" y el distribuidor a su color original */
  $('#f-rep').addEventListener('click',async e=>{
